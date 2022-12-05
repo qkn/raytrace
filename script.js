@@ -60,7 +60,7 @@ class TriangleSurface extends Surface {
   precompute () {
     const [A, B, C] = this.vertices;
     
-    // Base vectors
+    // Basis vectors
     this.vec1 = Vector.sub(B, A);
     this.vec2 = Vector.sub(C, A);
 
