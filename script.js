@@ -44,32 +44,6 @@ class Vector {
   }
 }
 
-class Util {
-  static triangleContainsPoint (vertices, p) {
-    const [A, B, C] = vertices;
-
-    // Compute vectors
-    const v0 = Vector.sub(C, A);
-    const v1 = Vector.sub(B, A);
-    const v2 = Vector.sub(p, A);
-
-    // Compute dot products
-    const dot00 = Vector.dot(v0, v0);
-    const dot01 = Vector.dot(v0, v1);
-    const dot02 = Vector.dot(v0, v2);
-    const dot11 = Vector.dot(v1, v1);
-    const dot12 = Vector.dot(v1, v2);
-
-    // Compute barycentric coordinates
-    const invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
-    const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-    const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-
-    // Check if point is in triangle
-    return (u >= 0) && (v >= 0) && (u + v < 1);
-  }
-}
-
 class Surface {
   constructor ({ color }) {
     this.color = color;
@@ -80,19 +54,26 @@ class TriangleSurface extends Surface {
   constructor ({ color, vertices }) {
     super({ color });
     this.vertices = vertices;
-    this.computePlane();
+    this.precompute();
   }
 
-  computePlane () {
+  precompute () {
     const [A, B, C] = this.vertices;
-    const vec1 = Vector.sub(B, A);
-    const vec2 = Vector.sub(C, A);
-    const normal = Vector.normalize(Vector.cross(vec1, vec2));
-    const d = -Vector.dot(normal, A);
+    
+    // Base vectors
+    this.vec1 = Vector.sub(B, A);
+    this.vec2 = Vector.sub(C, A);
 
-    this.normal = normal;
-    this.d = d;
-    this.plane = [...normal, d];
+    // Plane
+    this.normal = Vector.normalize(Vector.cross(this.vec1, this.vec2));
+    this.d = -Vector.dot(this.normal, A);
+    this.plane = [...this.normal, this.d];
+
+    // Dot products for point in triangle check
+    this.dot11 = Vector.dot(this.vec1, this.vec1);
+    this.dot12 = Vector.dot(this.vec1, this.vec2);
+    this.dot22 = Vector.dot(this.vec2, this.vec2);
+    this.invDenom = 1 / (this.dot11 * this.dot22 - this.dot12 * this.dot12);
   }
 
   rayIntersect (rayOrigin, rayDirection) {
@@ -111,11 +92,26 @@ class TriangleSurface extends Surface {
 
     const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
 
-    if (Util.triangleContainsPoint(this.vertices, p)) {
+    if (this.containsPoint(p)) {
       return { t, p };
     } else {
       return { t: null, p: null };
     }
+  }
+
+  containsPoint (p) {
+    const vec3 = Vector.sub(p, this.vertices[0]);
+
+    // Compute dot products
+    const dot13 = Vector.dot(this.vec1, vec3);
+    const dot23 = Vector.dot(this.vec2, vec3);
+
+    // Compute barycentric coordinates
+    const u = (this.dot22 * dot13 - this.dot12 * dot23) * this.invDenom;
+    const v = (this.dot11 * dot23 - this.dot12 * dot13) * this.invDenom;
+
+    // Check if point is in triangle
+    return (u >= 0) && (v >= 0) && (u + v < 1);
   }
 }
 
