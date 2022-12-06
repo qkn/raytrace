@@ -2,27 +2,59 @@
 class Vector {
   // vec1 + vec2
   static add (vec1, vec2) {
-    return vec1.map((v, i) => vec2[i] + v);
+    let result = new Array(vec1.length);
+    for (let i = 0; i < vec1.length; i++) {
+      result[i] = vec1[i] + vec2[i];
+    }
+    return result;
+  }
+
+  static iadd (vec1, vec2) {
+    for (let i = 0; i < vec1.length; i++) {
+      vec1[i] = vec1[i] + vec2[i];
+    }
   }
 
   // vec1 - vec2
   static sub (vec1, vec2) {
-    return vec1.map((v, i) => v - vec2[i]);
+    let result = new Array(vec1.length);
+    for (let i = 0; i < vec1.length; i++) {
+      result[i] = vec1[i] - vec2[i];
+    }
+    return result;
   }
 
   // scalar * vec
   static scale (vec, scalar) {
-    return vec.map(v => scalar * v);
+    let result = new Array(vec.length);
+    for (let i = 0; i < vec.length; i++) {
+      result[i] = scalar * vec[i];
+    }
+    return result;
+  }
+
+  static iscale (vec, scalar) {
+    for (let i = 0; i < vec.length; i++) {
+      vec[i] = scalar * vec[i];
+    }
   }
 
   // get norm of vec
   static norm (vec) {
-    return Math.hypot(...vec);
+    let sum = 0;
+    for (let i = 0; i < vec.length; i++) {
+      sum += vec[i] ** 2;
+    }
+    return Math.sqrt(sum);
   }
 
   // scale vec to norm 1
   static normalize (vec) {
     return Vector.scale(vec, 1 / Vector.norm(vec))
+  }
+
+  static inormalize (vec) {
+    Vector.iscale(vec, 1 / Vector.norm(vec));
   }
 
   // vec1 x vec2
@@ -37,7 +69,9 @@ class Vector {
   // vec1 . vec2
   static dot (vec1, vec2) {
     let sum = 0;
-    vec1.forEach((v, i) => sum += v * vec2[i]);
+    for (let i = 0; i < vec1.length; i++) {
+      sum += vec1[i] * vec2[i];
+    }
     return sum;
   }
 }
@@ -143,21 +177,21 @@ class TriangleSurface extends Surface {
 
     if (denom === 0) {
       // Ray is parallel to plane, thus no intersect
-      return { t: null, p: null };
+      return null;
     }
 
     const t = -(Vector.dot(this.normal, rayOrigin) + this.d) / denom;
 
     if (t < 0) {
-      return { t: null, p: null };
+      return null;
     }
 
     const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
 
     if (this.containsPoint(p)) {
-      return { t, p };
+      return { t, p, normal: this.normal };
     } else {
-      return { t: null, p: null };
+      return null;
     }
   }
 
@@ -177,6 +211,54 @@ class TriangleSurface extends Surface {
   }
 }
 
+class SphereSurface extends Surface {
+  constructor ({ color, pos, r }) {
+    super({ color });
+    this.pos = pos;
+    this.relPos = pos;
+    this.r = r;
+
+    this.r2 = r ** 2;
+  }
+
+  rayIntersect (rayOrigin, rayDirection) {
+    // Make sphere center the new origin
+    const relOrigin = Vector.sub(rayOrigin, this.relPos);
+
+    const [x0, y0, z0] = relOrigin;
+    const [xd, yd, zd] = rayDirection;
+
+    const a = xd**2 + yd**2 + zd**2;
+    const b = 2 * (x0*xd + y0*yd + z0*zd);
+    const c = x0**2 + y0**2 + z0**2 - this.r2;
+
+    const discrim = b**2 - 4 * a * c;
+
+    if (discrim < 0) {
+      return null;
+    }
+
+    const t = (-b - Math.sqrt(discrim)) / (2 * a);
+
+    if (t < 0) {
+      return null;
+    }
+
+    const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
+
+    const normal = Vector.sub(p, this.relPos);
+    Vector.inormalize(normal);
+
+    return { t, p, normal };
+  }
+
+  relative (pos, invmatrix) {
+    this.relPos = Vector.sub(this.pos, pos);
+
+    this.relPos = Matrix.pmultiply(invmatrix, this.relPos);
+  }
+}
+
 class LightSource {
   constructor ({ pos }) {
     this.pos = pos;
@@ -192,13 +274,24 @@ class LightSource {
 
 // Find the first surface that ray intersects
 function rayHitSurface (rayOrigin, rayDirection, surfaces) {
-  let result = { surface: null, t: Infinity, p: null };
-  surfaces.forEach(surface => {
-    const { t, p } = surface.rayIntersect(rayOrigin, rayDirection);
-    if (t !== null && t < result.t) {
-      result = { surface, t, p };
+  const result = {
+    surface: null,
+    t: Infinity,
+    p: null,
+    normal: null
+  }
+
+  for (let i = 0; i < surfaces.length; i++) {
+    const s = surfaces[i];
+    const hit = s.rayIntersect(rayOrigin, rayDirection);
+    if (hit !== null && hit.t < result.t) {
+      result.surface = s;
+      result.t = hit.t;
+      result.p = hit.p;
+      result.normal = hit.normal;
     }
-  });
+  }
+
   return result;
 }
 
@@ -215,8 +308,7 @@ class Scene {
 }
 
 class Camera {
-  constructor ({ ctx, pos, direction }) {
-    this.ctx = ctx;
+  constructor ({ pos, direction }) {
     this.pos = pos;
 
     this.setDirection(direction);
@@ -237,21 +329,21 @@ class Camera {
   
   matrix () {
     return Matrix.multiply(
-      Matrix.pitch(this.pitch),
-      Matrix.yaw(this.yaw)
+      Matrix.yaw(this.yaw),
+      Matrix.pitch(this.pitch)
     );
   }
 
   invmatrix () {
     return Matrix.multiply(
-      Matrix.yaw(-this.yaw),
-      Matrix.pitch(-this.pitch)
+      Matrix.pitch(-this.pitch),
+      Matrix.yaw(-this.yaw)
     );
   }
 
-  render (scene) {
-    const { width, height } = this.ctx.canvas;
-    const image = this.ctx.createImageData(width, height);
+  render (ctx, scene) {
+    const { width, height } = ctx.canvas;
+    const image = ctx.createImageData(width, height);
     const { data } = image;
     
     const halfWidth = width / 2;
@@ -267,6 +359,9 @@ class Camera {
     const { surfaces, lights } = scene;
 
     const origin = [0, 0, 0];
+
+    const direction = new Array(3);
+    const color = new Array(3);
     
     for (let screenY = 0; screenY < height; screenY++) {
       for (let screenX = 0; screenX < width; screenX++) {
@@ -274,16 +369,25 @@ class Camera {
         const y = halfHeight - screenY;
 
         // Ray passing through camera (0, 0, 0) and pixel on screen
-        const direction = Vector.normalize([x, y, dis]);
+        direction[0] = x;
+        direction[1] = y;
+        direction[2] = dis;
+        Vector.inormalize(direction);
 
         // Find the first surface the ray hits
-        const { surface, t, p } = rayHitSurface(origin, direction, surfaces);
+        const { surface, t, p, normal } = rayHitSurface(
+          origin, direction, surfaces);
 
         if (surface === null) {
           continue;
         }
 
-        const color = surface.color.map(v => v * 0xff);
+        Vector.inormalize(p);
+        const b = Math.abs(Vector.dot(normal, p));
+
+        for (let i = 0; i < 3; i++) {
+          color[i] = surface.color[i] * 0xff * b;
+        }
 
         // Draw the pixel
         const index = 4 * (width * screenY + screenX);
@@ -294,70 +398,169 @@ class Camera {
       }
     }
 
-    this.ctx.putImageData(image, 0, 0);
+    ctx.putImageData(image, 0, 0);
   }
 }
+
+const surfaces = [
+  new TriangleSurface({
+    color: [1, 0, 0],
+    vertices: [
+      [-10, 10, 10],
+      [-10, -10, 10],
+      [10, -10, -10]
+    ]
+  }),
+  new TriangleSurface({
+    color: [0, 0, 1],
+    vertices: [
+      [10, 10, 10],
+      [10, -10, 10],
+      [-10, -10, -10]
+    ]
+  }),
+  new TriangleSurface({
+    color: [0, 1, 0],
+    vertices: [
+      [-10, -10, -10],
+      [-10, -10, 10],
+      [10, -10, -10]
+    ]
+  }),
+  new TriangleSurface({
+    color: [0, 1, 0],
+    vertices: [
+      [10, -10, 10],
+      [10, -10, -10],
+      [-10, -10, 10]
+    ]
+  }),
+  new SphereSurface({
+    color: [0, 0.6, 1],
+    pos: [0, -2, 0],
+    r: 5
+  }),
+  new TriangleSurface({
+    color: [0, 1, 0],
+    vertices: [
+      [20, 10, 10],
+      [30, 10, 10],
+      [20, -10, -10]
+    ]
+  }),
+  new TriangleSurface({
+    color: [0, 1, 0],
+    vertices: [
+      [30, 10, 10],
+      [30, -10, -10],
+      [20, -10, -10]
+    ]
+  }),
+  new TriangleSurface({
+    color: [0, 1, 0],
+    vertices: [
+      [30, 10, 10],
+      [30, -10, 10],
+      [30, -10, -10]
+    ]
+  }),
+  new TriangleSurface({
+    color: [0, 1, 0],
+    vertices: [
+      [20, 10, 10],
+      [20, -10, 10],
+      [20, -10, -10]
+    ]
+  })
+];
+
+const lights = [
+  new LightSource({
+    pos: [-10, 0, 0]
+  })
+];
+
+const scene = new Scene({
+  surfaces,
+  lights
+});
+
+const camera = new Camera({
+  pos: [0, 0, -30],
+  direction: [0, 0, 1]
+});
+
+// Camera movement
+const inputs = new Set();
+const cache = new Set();
+const pressed = (key) => cache.has(key) ? 1 : 0;
+const speed = 0.04;
+
+addEventListener("mousemove", (ev) => {
+  const step = 0.08;
+
+  const dx = ev.movementX * step;
+  const dy = ev.movementY * step;
+
+  camera.setRotation(
+    (camera.yaw + dx * step) % (2 * Math.PI),
+    (camera.pitch - dy * step) % (2 * Math.PI)
+  );
+});
+
+addEventListener("keydown", (ev) => {
+  cache.add(ev.key);
+  inputs.add(ev.key);
+});
+
+addEventListener("keyup", (ev) => {
+  inputs.delete(ev.key);
+});
+
+addEventListener("blur", () => {
+  inputs.forEach(key => {
+    inputs.delete(key);
+  });
+});
 
 addEventListener("load", () => {
   const canvas = document.querySelector("#canvas");
   const ctx = canvas.getContext("2d");
 
-  const surfaces = [
-    new TriangleSurface({
-      color: [1, 0, 0],
-      vertices: [
-        [-10, 10, 10],
-        [-10, -10, 10],
-        [10, -10, -10]
-      ]
-    }),
-    new TriangleSurface({
-      color: [0, 0, 1],
-      vertices: [
-        [10, 10, 10],
-        [10, -10, 10],
-        [-10, -10, -10]
-      ]
-    }),
-    new TriangleSurface({
-      color: [0, 1, 0],
-      vertices: [
-        [-10, -10, -10],
-        [-10, -10, 10],
-        [10, -10, -10]
-      ]
-    }),
-    new TriangleSurface({
-      color: [0, 1, 0],
-      vertices: [
-        [10, -10, 10],
-        [10, -10, -10],
-        [-10, -10, -10]
-      ]
-    })
-  ];
+  let t0 = 0;
 
-  const lights = [
-    new LightSource({
-      pos: [10, 10, 5]
-    })
-  ];
+  function animate (t) {
+    const dt = Math.min(t - t0, 100);
+    t0 = t;
 
-  const scene = new Scene({
-    surfaces,
-    lights
+    const translate = [
+      pressed("d") - pressed("a"),
+      pressed(" ") - pressed("Shift"),
+      pressed("w") - pressed("s")
+    ];
+
+    cache.forEach(key => {
+      if (!inputs.has(key)) {
+        cache.delete(key);
+      }
+    });
+
+    const mat = Matrix.yaw(camera.yaw);
+    const delta = Matrix.pmultiply(mat, translate);
+    
+    if (Vector.norm(delta) !== 0) {
+      Vector.inormalize(delta);
+      Vector.iadd(camera.pos, Vector.scale(delta, speed * dt));
+    }
+
+    camera.render(ctx, scene);
+
+    requestAnimationFrame(animate);
+  }
+
+  requestAnimationFrame(animate);
+
+  canvas.addEventListener("click", () => {
+    canvas.requestPointerLock();
   });
-
-  const camera = new Camera({
-    ctx,
-    pos: [0, 0, -30],
-    direction: [0, 0, 1]
-  });
-
-  camera.render(scene);
-
-  // for easy debug
-  window.scene = scene;
-  window.camera = camera;
-  console.log(camera);
 });
