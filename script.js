@@ -162,6 +162,7 @@ class TriangleSurface extends Surface {
 
     // Plane
     this.normal = Vector.normalize(Vector.cross(this.vec1, this.vec2));
+    this.negNormal = Vector.scale(this.normal, -1);
     this.d = -Vector.dot(this.normal, A);
     this.plane = [...this.normal, this.d];
 
@@ -189,7 +190,7 @@ class TriangleSurface extends Surface {
     const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
 
     if (this.containsPoint(p)) {
-      return { t, p, normal: this.normal };
+      return { t, p, normal: denom > 0 ? this.normal : this.negNormal };
     } else {
       return null;
     }
@@ -207,7 +208,11 @@ class TriangleSurface extends Surface {
     const v = (this.dot11 * dot23 - this.dot12 * dot13) * this.invDenom;
 
     // Check if point is in triangle
-    return (u >= 0) && (v >= 0) && (u + v < 1);
+    return (
+      (u >= -Number.EPSILON)
+      && (v >= -Number.EPSILON)
+      && (u + v <= 1 + Number.EPSILON)
+    );
   }
 }
 
@@ -246,7 +251,7 @@ class SphereSurface extends Surface {
 
     const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
 
-    const normal = Vector.sub(p, this.relPos);
+    const normal = Vector.sub(this.relPos, p);
     Vector.inormalize(normal);
 
     return { t, p, normal };
@@ -259,9 +264,24 @@ class SphereSurface extends Surface {
   }
 }
 
-class LightSource {
-  constructor ({ pos }) {
+class Tickable {
+  constructor ({ pos, tick }) {
     this.pos = pos;
+    this.origPos = pos.slice();
+    if (tick !== undefined) {
+      this.tick = (t) => tick(this, t);
+    }
+  }
+
+  tick (t) {
+
+  }
+}
+
+class LightSource extends Tickable {
+  constructor ({ pos, color, tick }) {
+    super({ pos, tick });
+    this.color = color;
     this.relPos = pos;
   }
 
@@ -273,7 +293,7 @@ class LightSource {
 }
 
 // Find the first surface that ray intersects
-function rayHitSurface (rayOrigin, rayDirection, surfaces) {
+function rayHitSurface (rayOrigin, rayDirection, drawables) {
   const result = {
     surface: null,
     t: Infinity,
@@ -281,14 +301,15 @@ function rayHitSurface (rayOrigin, rayDirection, surfaces) {
     normal: null
   }
 
-  for (let i = 0; i < surfaces.length; i++) {
-    const s = surfaces[i];
-    const hit = s.rayIntersect(rayOrigin, rayDirection);
-    if (hit !== null && hit.t < result.t) {
-      result.surface = s;
-      result.t = hit.t;
-      result.p = hit.p;
-      result.normal = hit.normal;
+  for (const drawable of drawables) {
+    for (const surface of drawable.surfaces) {
+      const hit = surface.rayIntersect(rayOrigin, rayDirection);
+      if (hit !== null && hit.t < result.t) {
+        result.surface = surface;
+        result.t = hit.t;
+        result.p = hit.p;
+        result.normal = hit.normal;
+      }
     }
   }
 
@@ -296,14 +317,23 @@ function rayHitSurface (rayOrigin, rayDirection, surfaces) {
 }
 
 class Scene {
-  constructor ({ surfaces, lights }) {
-    this.surfaces = surfaces;
+  constructor ({ drawables, lights }) {
+    this.drawables = drawables;
     this.lights = lights;
   }
 
   relative (pos, invmatrix) {
-    this.surfaces.forEach(surface => surface.relative(pos, invmatrix));
+    this.drawables.forEach(drawable => drawable.relative(pos, invmatrix));
     this.lights.forEach(light => light.relative(pos, invmatrix));
+  }
+
+  tick (t) {
+    for (const light of this.lights) {
+      light.tick(t);
+    }
+    for (const drawable of this.drawables) {
+      drawable.tick(t);
+    }
   }
 }
 
@@ -352,14 +382,15 @@ class Camera {
 
     // Distance from camera to screen
     const dis = halfWidth / Math.tan(this.fov / 2);
+    
+    // Get lights and surfaces
+    const { drawables, lights } = scene;
 
     scene.relative(this.pos, this.invmatrix());
-    const { surfaces, lights } = scene;
 
     const origin = [0, 0, 0];
 
     const direction = new Array(3);
-    const color = new Array(3);
     
     for (let screenY = 0; screenY < height; screenY++) {
       for (let screenX = 0; screenX < width; screenX++) {
@@ -374,25 +405,26 @@ class Camera {
 
         // Find the first surface the ray hits
         const { surface, t, p, normal } = rayHitSurface(
-          origin, direction, surfaces);
+          origin, direction, drawables);
 
         if (surface === null) {
           continue;
         }
 
-        Vector.inormalize(p);
-        const b = Math.abs(Vector.dot(normal, p));
-
-        for (let i = 0; i < 3; i++) {
-          color[i] = surface.color[i] * 0xff * b;
-        }
-
         // Draw the pixel
         const index = 4 * (width * screenY + screenX);
-        data[index + 0] = color[0];
-        data[index + 1] = color[1];
-        data[index + 2] = color[2];
         data[index + 3] = 0xff;
+
+        for (const light of lights) {
+          const incoming = Vector.sub(p, light.relPos);
+          const norm = Vector.norm(incoming);
+          Vector.iscale(incoming, 1 / norm); // Normalize
+          const b = Vector.dot(normal, incoming) / norm**2;
+
+          for (let i = 0; i < 3; i++) {
+            data[index + i] += surface.color[i] * 0xff * b * light.color[i];
+          }
+        }
       }
     }
 
@@ -400,49 +432,123 @@ class Camera {
   }
 }
 
-const surfaces = [
-  new TriangleSurface({
-    color: [0, 1, 0],
-    vertices: [
-      [20, 10, 10],
-      [30, 10, 10],
-      [20, -10, -10]
-    ]
+class Drawable extends Tickable {
+  constructor({ pos, surfaces, tick }) {
+    super({ pos, tick })
+    this.pos = pos;
+    this.surfaces = surfaces;
+  }
+
+  relative (pos, invmatrix) {
+    const relPos = Vector.sub(pos, this.pos);
+    this.surfaces.forEach(surface => surface.relative(relPos, invmatrix));
+  }
+}
+
+class Ball extends Drawable {
+  constructor ({ pos, r, color, tick }) {
+    super({
+      pos,
+      tick,
+      surfaces: [
+        new SphereSurface({
+          color,
+          pos: [0, 0, 0],
+          r
+        })
+      ]
+    });
+    this.r = r;
+    this.color = color;
+  }
+}
+
+class Ramp extends Drawable {
+  constructor ({ pos, color, tick }) {
+    super({
+      pos,
+      tick,
+      surfaces: [
+        new TriangleSurface({
+          color,
+          vertices: [
+            [-5, 10, 10],
+            [-5, -10, -10],
+            [5, 10, 10]
+          ]
+        }),
+        new TriangleSurface({
+          color,
+          vertices: [
+            [5, 10, 10],
+            [-5, -10, -10],
+            [5, -10, -10]
+          ]
+        }),
+        new TriangleSurface({
+          color,
+          vertices: [
+            [5, 10, 10],
+            [5, -10, 10],
+            [5, -10, -10]
+          ]
+        }),
+        new TriangleSurface({
+          color,
+          vertices: [
+            [-5, 10, 10],
+            [-5, -10, 10],
+            [-5, -10, -10]
+          ]
+        })
+      ]
+    });
+    this.color = color;
+  }
+}
+
+class Animation {
+  static circle ({ r }) {
+    return (obj, t) => {
+      const p = t / 1000;
+      const delta = [Math.cos(p), 0, -Math.sin(p)];
+      obj.pos = Vector.add(obj.origPos, Vector.scale(delta, r));
+    }
+  }
+}
+
+const drawables = [
+  new Ramp({
+    pos: [0, 0, 10],
+    color: [0, 1, 0]
   }),
-  new TriangleSurface({
-    color: [0, 1, 0],
-    vertices: [
-      [30, 10, 10],
-      [30, -10, -10],
-      [20, -10, -10]
-    ]
+  new Ramp({
+    pos: [20, 0, 10],
+    color: [1, 0, 0]
   }),
-  new TriangleSurface({
-    color: [0, 1, 0],
-    vertices: [
-      [30, 10, 10],
-      [30, -10, 10],
-      [30, -10, -10]
-    ]
+  new Ball({
+    pos: [0, 0, 10],
+    color: [0, 0, 1],
+    r: 5
   }),
-  new TriangleSurface({
-    color: [0, 1, 0],
-    vertices: [
-      [20, 10, 10],
-      [20, -10, 10],
-      [20, -10, -10]
-    ]
+  new Ball({
+    pos: [0, 0, 10],
+    color: [0, 0, 1],
+    r: 1,
+    tick: Animation.circle({ r: 12 })
   })
 ];
 
 const lights = [
   new LightSource({
-    pos: [-10, 0, 0]
+    pos: [0, 0, 10],
+    color: [100, 100, 100],
+    tick: Animation.circle({ r: 12 })
   })
 ];
 
 const scene = new Scene({
-  surfaces,
+  drawables,
   lights
 });
 
@@ -456,7 +562,6 @@ const inputs = new Set();
 const cache = new Set();
 const pressed = (key) => cache.has(key) ? 1 : 0;
 const speed = 0.04;
-
 
 // fps
 let t0 = 0;
@@ -549,6 +654,8 @@ addEventListener("load", () => {
       Vector.inormalize(delta);
       Vector.iadd(camera.pos, Vector.scale(delta, speed * dt));
     }
+
+    scene.tick(t);
 
     camera.render(ctx, scene);
 
