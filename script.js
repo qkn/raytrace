@@ -310,6 +310,7 @@ class Scene {
 class Camera {
   constructor ({ pos, direction }) {
     this.pos = pos;
+    this.fov = Math.PI / 2;
 
     this.setDirection(direction);
   }
@@ -349,11 +350,8 @@ class Camera {
     const halfWidth = width / 2;
     const halfHeight = height / 2;
 
-    // Field of view in radians
-    const fov = Math.PI / 2;
-
     // Distance from camera to screen
-    const dis = halfWidth / Math.tan(fov / 2);
+    const dis = halfWidth / Math.tan(this.fov / 2);
 
     scene.relative(this.pos, this.invmatrix());
     const { surfaces, lights } = scene;
@@ -403,43 +401,6 @@ class Camera {
 }
 
 const surfaces = [
-  new TriangleSurface({
-    color: [1, 0, 0],
-    vertices: [
-      [-10, 10, 10],
-      [-10, -10, 10],
-      [10, -10, -10]
-    ]
-  }),
-  new TriangleSurface({
-    color: [0, 0, 1],
-    vertices: [
-      [10, 10, 10],
-      [10, -10, 10],
-      [-10, -10, -10]
-    ]
-  }),
-  new TriangleSurface({
-    color: [0, 1, 0],
-    vertices: [
-      [-10, -10, -10],
-      [-10, -10, 10],
-      [10, -10, -10]
-    ]
-  }),
-  new TriangleSurface({
-    color: [0, 1, 0],
-    vertices: [
-      [10, -10, 10],
-      [10, -10, -10],
-      [-10, -10, 10]
-    ]
-  }),
-  new SphereSurface({
-    color: [0, 0.6, 1],
-    pos: [0, -2, 0],
-    r: 5
-  }),
   new TriangleSurface({
     color: [0, 1, 0],
     vertices: [
@@ -496,17 +457,11 @@ const cache = new Set();
 const pressed = (key) => cache.has(key) ? 1 : 0;
 const speed = 0.04;
 
-addEventListener("mousemove", (ev) => {
-  const step = 0.08;
 
-  const dx = ev.movementX * step;
-  const dy = ev.movementY * step;
-
-  camera.setRotation(
-    (camera.yaw + dx * step) % (2 * Math.PI),
-    (camera.pitch - dy * step) % (2 * Math.PI)
-  );
-});
+// fps
+let t0 = 0;
+let stats0 = 0;
+const times = [];
 
 addEventListener("keydown", (ev) => {
   cache.add(ev.key);
@@ -527,11 +482,53 @@ addEventListener("load", () => {
   const canvas = document.querySelector("#canvas");
   const ctx = canvas.getContext("2d");
 
-  let t0 = 0;
+  const fpsCounter = document.getElementById("fps-counter");
+  const fovCounter = document.getElementById("fov-counter");
+  const resCounter = document.getElementById("res-counter");
+
+  document.getElementById("fov-input").addEventListener("input", (ev) => {
+    const { value } = ev.target;
+    const radians = value * Math.PI / 180;
+    camera.fov = radians;
+    fovCounter.innerText = value;
+  });
+  
+  document.getElementById("res-input").addEventListener("input", (ev) => {
+    const { value } = ev.target;
+    canvas.width = value;
+    canvas.height = value;
+    resCounter.innerText = value;
+  });
+
+  addEventListener("mousemove", (ev) => {
+    if (document.pointerLockElement !== canvas) {
+      return;
+    }
+    
+    const step = 0.08;
+  
+    const dx = ev.movementX * step;
+    const dy = ev.movementY * step;
+  
+    camera.setRotation(
+      (camera.yaw + dx * step) % (2 * Math.PI),
+      (camera.pitch - dy * step) % (2 * Math.PI)
+    );
+  });
 
   function animate (t) {
     const dt = Math.min(t - t0, 100);
     t0 = t;
+    times.push(t);
+
+    if (t - stats0 > 500) {
+      while (times.length > 0 && times[0] <= t - 1000) {
+        times.shift();
+      }
+  
+      fpsCounter.innerText = times.length;
+      stats0 = t;
+    }
 
     const translate = [
       pressed("d") - pressed("a"),

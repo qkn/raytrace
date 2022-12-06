@@ -4,6 +4,10 @@
     <title>raytrace</title>
     <script src="./script.js"></script>
     <style>
+      #main {
+        display: flex;
+        gap: 8px;
+      }
       canvas {
         width: 500px;
         border: 1px solid #cccccc;
@@ -12,6 +16,24 @@
     </style>
   </head>
   <body>
-    <canvas id="canvas" width="500" height="500"></canvas>
+    <div id="main">
+      <canvas id="canvas" width="100" height="100"></canvas>
+      <div id="options">
+        <div>
+          <label>fps</label>
+          <span id="fps-counter"></span>
+        </div>
+        <div>
+          <label>fov</label>
+          <input id="fov-input" type="range" min="50" max="150" value="90" />
+          <span id="fov-counter">90</span>
+        </div>
+        <div>
+          <label>resolution</label>
+          <input id="res-input" type="range" min="10" max="500" value="100" />
+          <span id="res-counter">100</span>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
