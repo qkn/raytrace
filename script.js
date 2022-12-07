@@ -229,20 +229,19 @@ class SphereSurface extends Surface {
     // Make sphere center the new origin
     const relOrigin = Vector.sub(rayOrigin, this.relPos);
 
-    const [x0, y0, z0] = relOrigin;
-    const [xd, yd, zd] = rayDirection;
+    if (Math.abs(Vector.norm(rayDirection) - 1) > 0.1) {
+      alert(Vector.norm(rayDirection));
+    }
+    const bHalf = Vector.dot(relOrigin, rayDirection);
+    const c = Vector.norm(relOrigin) ** 2 - this.r2;
 
-    const a = xd**2 + yd**2 + zd**2;
-    const b = 2 * (x0*xd + y0*yd + z0*zd);
-    const c = x0**2 + y0**2 + z0**2 - this.r2;
-
-    const discrim = b**2 - 4 * a * c;
+    const discrim = bHalf**2 - c;
 
     if (discrim < 0) {
       return null;
     }
 
-    const t = (-b - Math.sqrt(discrim)) / (2 * a);
+    const t = -bHalf - Math.sqrt(discrim);
 
     if (t < 0) {
       return null;
@@ -286,10 +285,10 @@ class CylinderSurface extends Surface {
     const dot2 = Vector.dot(this.relAxis, relOrigin);
 
     const a = xd ** 2 + yd ** 2 + zd ** 2 - dot1 ** 2;
-    const b = 2 * (x0 * xd + y0 * yd + z0 * zd - dot2 * dot1);
+    const bHalf = x0 * xd + y0 * yd + z0 * zd - dot2 * dot1;
     const c = x0 ** 2 + y0 ** 2 + z0 ** 2 - dot2 ** 2 - this.r2;
 
-    const discrim = b**2 - 4 * a * c;
+    const discrim = bHalf**2 - a * c;
 
     if (discrim < 0) {
       return null;
@@ -297,8 +296,8 @@ class CylinderSurface extends Surface {
 
     const root = Math.sqrt(discrim);
 
-    const t1 = (-b - root) / (2 * a);
-    const t2 = (-b + root) / (2 * a);
+    const t1 = (-bHalf- root) / a;
+    const t2 = (-bHalf + root) / a;
 
     if (t1 < 0 && t2 < 0) {
       return null;
