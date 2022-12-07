@@ -173,7 +173,7 @@ class TriangleSurface extends Surface {
     this.invDenom = 1 / (this.dot11 * this.dot22 - this.dot12 * this.dot12);
   }
 
-  rayIntersect (rayOrigin, rayDirection) {
+  rayIntersect (rayOrigin, rayDirection, planeOnly=false) {
     const denom = Vector.dot(this.normal, rayDirection);
 
     if (denom === 0) {
@@ -189,7 +189,7 @@ class TriangleSurface extends Surface {
 
     const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
 
-    if (this.containsPoint(p)) {
+    if (planeOnly || this.containsPoint(p)) {
       return { t, p, normal: denom > 0 ? this.negNormal : this.normal };
     } else {
       return null;
@@ -298,8 +298,9 @@ class CylinderSurface extends Surface {
     const root = Math.sqrt(discrim);
 
     const t1 = (-b - root) / (2 * a);
+    const t2 = (-b + root) / (2 * a);
 
-    if (t1 < 0) {
+    if (t1 < 0 && t2 < 0) {
       return null;
     }
 
@@ -314,8 +315,6 @@ class CylinderSurface extends Surface {
 
       return { t: t1, p: p1, normal };
     }
-
-    const t2 = (-b + root) / (2 * a);
 
     const p2 = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
     const c2 = Vector.sub(p2, this.relPos);
@@ -394,6 +393,31 @@ function rayHitSurface (rayOrigin, rayDirection, drawables) {
   }
 
   return result;
+}
+
+// Checks whether a surface is the first one hit by a ray
+function firstHitIs (rayOrigin, rayDirection, drawables, target) {
+  const hit0 = target.rayIntersect(rayOrigin, rayDirection, true);
+
+  if (hit0 === null) {
+    return false;
+  }
+
+  const t0 = hit0.t;
+
+  for (const drawable of drawables) {
+    for (const surface of drawable.surfaces) {
+      if (surface === target) {
+        continue;
+      }
+      const hit = surface.rayIntersect(rayOrigin, rayDirection);
+      if (hit !== null && hit.t < t0) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 class Scene {
@@ -512,10 +536,17 @@ class Camera {
         }
 
         for (const light of lights) {
-          const incoming = Vector.sub(light.relPos, p);
+          const incoming = Vector.sub(p, light.relPos);
+
           const norm = Vector.norm(incoming);
           Vector.iscale(incoming, 1 / norm); // Normalize
-          const b = Vector.dot(normal, incoming) / norm**2;
+
+          if (!firstHitIs(light.relPos, incoming, drawables, surface)) {
+            // Light is obstructed
+            continue;
+          }
+
+          const b = -Vector.dot(normal, incoming) / norm**2;
 
           for (let i = 0; i < 3; i++) {
             data[index + i] += surface.color[i] * 0xff * b * light.color[i];
@@ -529,23 +560,27 @@ class Camera {
 }
 
 class Drawable extends Tickable {
-  constructor({ pos, surfaces, tick }) {
+  constructor({ pos, surfaces, tick, transform }) {
     super({ pos, tick })
     this.pos = pos;
     this.surfaces = surfaces;
+    this.transform = transform;
   }
 
   relative (pos, invmatrix) {
     const relPos = Vector.sub(pos, this.pos);
-    this.surfaces.forEach(surface => surface.relative(relPos, invmatrix));
+    this.surfaces.forEach(surface => {
+      surface.relative(relPos, invmatrix);
+    });
   }
 }
 
 class Ball extends Drawable {
-  constructor ({ pos, r, color, tick }) {
+  constructor ({ pos, r, color, tick, transform }) {
     super({
       pos,
       tick,
+      transform,
       surfaces: [
         new SphereSurface({
           color,
@@ -560,10 +595,11 @@ class Ball extends Drawable {
 }
 
 class Cylinder extends Drawable {
-  constructor({ pos, color, r, height, tick }) {
+  constructor({ pos, color, r, height, tick, transform }) {
     super({
       pos,
       tick,
+      transform,
       surfaces: [
         new CylinderSurface({
           pos: [0, 0, 0],
@@ -580,10 +616,11 @@ class Cylinder extends Drawable {
 }
 
 class Ramp extends Drawable {
-  constructor ({ pos, color, tick }) {
+  constructor ({ pos, color, tick, transform }) {
     super({
       pos,
       tick,
+      transform,
       surfaces: [
         new TriangleSurface({
           color,
@@ -623,39 +660,6 @@ class Ramp extends Drawable {
   }
 }
 
-class Pepe extends Drawable {
-  constructor({ pos, color, tick }) {
-    const brown = [0.2, 0.1, 0];
-    super({
-      pos,
-      tick,
-      surfaces: [
-        new SphereSurface({
-          color: brown,
-          pos: [-5, 0, 0],
-          r: 7
-        }),
-        new SphereSurface({
-          color: brown,
-          pos: [5, 0, 0],
-          r: 5
-        }),
-        new CylinderSurface({
-          color: brown,
-          pos: [0, 0, 0],
-          r: 5,
-          height: 30
-        }),
-        new SphereSurface({
-          color: brown,
-          pos: [0, 30, 0],
-          r: 6
-        })
-      ]
-    })
-  }
-}
-
 class Animation {
   static circle ({ r, speed }) {
     return (obj, t) => {
@@ -687,20 +691,42 @@ const drawables = [
     tick: Animation.circle({ r: 22, speed: 1 })
   }),
   new Cylinder({
-    pos: [0, -10, -5],
+    pos: [20, -10, -10],
     color: [0, 0.5, 0.5],
     r: 5,
-    height: 10
+    height: 10,
+    transform: [
+      [1, 0, 0],
+      [0, 5, 0],
+      [0, 0, 1]
+    ]
   }),
-  new Pepe({
-    pos: [0, 0, -50],
-    tick: Animation.circle({ r: 5, speed: 10 })
+  new Drawable({
+    pos: [0, 0, 0],
+    surfaces: [
+      new TriangleSurface({
+        color: [0, 0, 1],
+        vertices: [
+          [-50, -10, -50],
+          [50, -10, -50],
+          [-50, -10, 50]
+        ]
+      }),
+      new TriangleSurface({
+        color: [0, 0, 1],
+        vertices: [
+          [-50, -10, 50],
+          [50, -10, 50],
+          [50, -10, -50]
+        ]
+      })
+    ]
   })
 ];
 
 const lights = [
   new LightSource({
-    pos: [0, 10, 0],
+    pos: [0, 20, 0],
     color: [500, 500, 500],
     tick: Animation.circle({ r: 20, speed: 1 })
   }),
