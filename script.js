@@ -623,10 +623,43 @@ class Ramp extends Drawable {
   }
 }
 
+class Pepe extends Drawable {
+  constructor({ pos, color, tick }) {
+    const brown = [0.2, 0.1, 0];
+    super({
+      pos,
+      tick,
+      surfaces: [
+        new SphereSurface({
+          color: brown,
+          pos: [-5, 0, 0],
+          r: 7
+        }),
+        new SphereSurface({
+          color: brown,
+          pos: [5, 0, 0],
+          r: 5
+        }),
+        new CylinderSurface({
+          color: brown,
+          pos: [0, 0, 0],
+          r: 5,
+          height: 30
+        }),
+        new SphereSurface({
+          color: brown,
+          pos: [0, 30, 0],
+          r: 6
+        })
+      ]
+    })
+  }
+}
+
 class Animation {
-  static circle ({ r }) {
+  static circle ({ r, speed }) {
     return (obj, t) => {
-      const p = t / 1000;
+      const p = speed * t / 1000;
       const delta = [Math.cos(p), 0, -Math.sin(p)];
       obj.pos = Vector.add(obj.origPos, Vector.scale(delta, r));
     }
@@ -651,21 +684,29 @@ const drawables = [
     pos: [0, 10, -5],
     color: [0, 0, 0],
     r: 1,
-    tick: Animation.circle({ r: 12 })
+    tick: Animation.circle({ r: 22, speed: 1 })
   }),
   new Cylinder({
     pos: [0, -10, -5],
     color: [0, 0.5, 0.5],
     r: 5,
     height: 10
+  }),
+  new Pepe({
+    pos: [0, 0, -50],
+    tick: Animation.circle({ r: 5, speed: 10 })
   })
 ];
 
 const lights = [
   new LightSource({
-    pos: [0, 10, -5],
+    pos: [0, 10, 0],
     color: [500, 500, 500],
-    tick: Animation.circle({ r: 12 })
+    tick: Animation.circle({ r: 20, speed: 1 })
+  }),
+  new LightSource({
+    pos: [10, 20, -30],
+    color: [500, 500, 500],
   })
 ];
 
