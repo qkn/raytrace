@@ -190,7 +190,7 @@ class TriangleSurface extends Surface {
     const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
 
     if (this.containsPoint(p)) {
-      return { t, p, normal: denom > 0 ? this.normal : this.negNormal };
+      return { t, p, normal: denom > 0 ? this.negNormal : this.normal };
     } else {
       return null;
     }
@@ -222,7 +222,6 @@ class SphereSurface extends Surface {
     this.pos = pos;
     this.relPos = pos;
     this.r = r;
-
     this.r2 = r ** 2;
   }
 
@@ -251,7 +250,7 @@ class SphereSurface extends Surface {
 
     const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
 
-    const normal = Vector.sub(this.relPos, p);
+    const normal = Vector.sub(p, this.relPos);
     Vector.inormalize(normal);
 
     return { t, p, normal };
@@ -261,6 +260,87 @@ class SphereSurface extends Surface {
     this.relPos = Vector.sub(this.pos, pos);
 
     this.relPos = Matrix.pmultiply(invmatrix, this.relPos);
+  }
+}
+
+class CylinderSurface extends Surface {
+  constructor ({ pos, color, r, height }) {
+    super({ color });
+    this.pos = pos;
+    this.relPos = pos;
+    this.r = r;
+    this.r2 = r ** 2;
+    this.height = height;
+    this.end = Vector.add(pos, [0, height, 0]);
+    this.relEnd = this.end;
+  }
+
+  rayIntersect (rayOrigin, rayDirection) {
+    // Make sphere center the new origin
+    const relOrigin = Vector.sub(rayOrigin, this.relPos);
+
+    const [x0, y0, z0] = relOrigin;
+    const [xd, yd, zd] = rayDirection;
+
+    const dot1 = Vector.dot(this.relAxis, rayDirection);
+    const dot2 = Vector.dot(this.relAxis, relOrigin);
+
+    const a = xd ** 2 + yd ** 2 + zd ** 2 - dot1 ** 2;
+    const b = 2 * (x0 * xd + y0 * yd + z0 * zd - dot2 * dot1);
+    const c = x0 ** 2 + y0 ** 2 + z0 ** 2 - dot2 ** 2 - this.r2;
+
+    const discrim = b**2 - 4 * a * c;
+
+    if (discrim < 0) {
+      return null;
+    }
+
+    const root = Math.sqrt(discrim);
+
+    const t1 = (-b - root) / (2 * a);
+
+    if (t1 < 0) {
+      return null;
+    }
+
+    const p1 = Vector.add(rayOrigin, Vector.scale(rayDirection, t1));
+    const c1 = Vector.sub(p1, this.relPos);
+    const d1 = Vector.dot(this.relAxis, c1);
+
+    if (d1 > 0 && d1 < this.height) {
+      const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d1));
+      const normal = Vector.sub(p1, offset);
+      Vector.inormalize(normal);
+
+      return { t: t1, p: p1, normal };
+    }
+
+    const t2 = (-b + root) / (2 * a);
+
+    const p2 = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
+    const c2 = Vector.sub(p2, this.relPos);
+    const d2 = Vector.dot(this.relAxis, c2);
+
+    if (d2 > 0 && d2 < this.height) {
+      const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d2));
+      const normal = Vector.sub(offset, p2);
+      Vector.inormalize(normal);
+
+      return { t: t2, p: p2, normal }; 
+    }
+
+    return null;
+  }
+
+  relative (pos, invmatrix) {
+    this.relPos = Vector.sub(this.pos, pos);
+    this.relPos = Matrix.pmultiply(invmatrix, this.relPos);
+
+    this.relEnd = Vector.sub(this.end, pos);
+    this.relEnd = Matrix.pmultiply(invmatrix, this.relEnd);
+
+    this.relAxis = Vector.sub(this.relEnd, this.relPos);
+    Vector.inormalize(this.relAxis);
   }
 }
 
@@ -338,9 +418,14 @@ class Scene {
 }
 
 class Camera {
-  constructor ({ pos, direction }) {
+  constructor ({ pos, direction, surfaceDisplay }) {
     this.pos = pos;
     this.fov = Math.PI / 2;
+
+    this.cursorPos = [null, null];
+    if (surfaceDisplay !== undefined) {
+      this.surfaceDisplay = surfaceDisplay;
+    }
 
     this.setDirection(direction);
   }
@@ -391,6 +476,9 @@ class Camera {
     const origin = [0, 0, 0];
 
     const direction = new Array(3);
+
+    const [cursorX, cursorY] = camera.cursorPos;
+    const lock = document.pointerLockElement === ctx.canvas;
     
     for (let screenY = 0; screenY < height; screenY++) {
       for (let screenX = 0; screenX < width; screenX++) {
@@ -415,8 +503,19 @@ class Camera {
         const index = 4 * (width * screenY + screenX);
         data[index + 3] = 0xff;
 
+        if (!lock && cursorX === screenX && cursorY === screenY) {
+          if (this.surfaceDisplay !== undefined) {
+            this.surfaceDisplay.innerText = JSON.stringify({
+              normal
+            });
+
+            data[index] = 0xff;
+            continue;
+          }
+        }
+
         for (const light of lights) {
-          const incoming = Vector.sub(p, light.relPos);
+          const incoming = Vector.sub(light.relPos, p);
           const norm = Vector.norm(incoming);
           Vector.iscale(incoming, 1 / norm); // Normalize
           const b = Vector.dot(normal, incoming) / norm**2;
@@ -460,6 +559,26 @@ class Ball extends Drawable {
     });
     this.r = r;
     this.color = color;
+  }
+}
+
+class Cylinder extends Drawable {
+  constructor({ pos, color, r, height, tick }) {
+    super({
+      pos,
+      tick,
+      surfaces: [
+        new CylinderSurface({
+          pos: [0, 0, 0],
+          color,
+          r,
+          height
+        })
+      ]
+    });
+    this.r = r;
+    this.color = color;
+    this.height = height;
   }
 }
 
@@ -532,17 +651,23 @@ const drawables = [
     r: 5
   }),
   new Ball({
-    pos: [0, 0, 10],
-    color: [0, 0, 1],
+    pos: [0, 10, -5],
+    color: [0, 0, 0],
     r: 1,
     tick: Animation.circle({ r: 12 })
+  }),
+  new Cylinder({
+    pos: [0, -10, -5],
+    color: [0, 0.5, 0.5],
+    r: 5,
+    height: 10
   })
 ];
 
 const lights = [
   new LightSource({
-    pos: [0, 0, 10],
-    color: [100, 100, 100],
+    pos: [0, 10, -5],
+    color: [500, 500, 500],
     tick: Animation.circle({ r: 12 })
   })
 ];
@@ -587,6 +712,8 @@ addEventListener("load", () => {
   const canvas = document.querySelector("#canvas");
   const ctx = canvas.getContext("2d");
 
+  camera.surfaceDisplay = document.getElementById("surface-display");
+
   const fpsCounter = document.getElementById("fps-counter");
   const fovCounter = document.getElementById("fov-counter");
   const resCounter = document.getElementById("res-counter");
@@ -605,8 +732,13 @@ addEventListener("load", () => {
     resCounter.innerText = value;
   });
 
-  addEventListener("mousemove", (ev) => {
+  canvas.addEventListener("mousemove", (ev) => {
     if (document.pointerLockElement !== canvas) {
+      const scale = canvas.width / canvas.clientWidth;
+      camera.cursorPos = [
+        Math.round(ev.offsetX * scale),
+        Math.round(ev.offsetY * scale)
+      ];
       return;
     }
     
