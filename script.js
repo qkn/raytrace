@@ -418,14 +418,11 @@ class Scene {
 }
 
 class Camera {
-  constructor ({ pos, direction, surfaceDisplay }) {
+  constructor ({ pos, direction }) {
     this.pos = pos;
     this.fov = Math.PI / 2;
 
     this.cursorPos = [null, null];
-    if (surfaceDisplay !== undefined) {
-      this.surfaceDisplay = surfaceDisplay;
-    }
 
     this.setDirection(direction);
   }
@@ -708,6 +705,23 @@ addEventListener("blur", () => {
   });
 });
 
+function startRecording (canvas) {
+  const chunks = [];
+  const stream = canvas.captureStream();
+  const rec = new MediaRecorder(stream);
+  rec.addEventListener("dataavailable", (e) => {
+    chunks.push(e.data);
+  });
+  rec.start();
+  return { rec, chunks };
+}
+
+function exportVideo (link, blob) {
+  const src = URL.createObjectURL(blob);
+  link.download = "recording.webm";
+  link.href = src;
+}
+
 addEventListener("load", () => {
   const canvas = document.querySelector("#canvas");
   const ctx = canvas.getContext("2d");
@@ -717,19 +731,49 @@ addEventListener("load", () => {
   const fpsCounter = document.getElementById("fps-counter");
   const fovCounter = document.getElementById("fov-counter");
   const resCounter = document.getElementById("res-counter");
+  const fovInput = document.getElementById("fov-input");
+  const resInput = document.getElementById("res-input");
+  const recBtn = document.getElementById("rec-btn");
+  const recLink = document.getElementById("rec-link");
 
-  document.getElementById("fov-input").addEventListener("input", (ev) => {
+  fovInput.addEventListener("input", (ev) => {
     const { value } = ev.target;
     const radians = value * Math.PI / 180;
     camera.fov = radians;
     fovCounter.innerText = value;
   });
   
-  document.getElementById("res-input").addEventListener("input", (ev) => {
+  resInput.addEventListener("input", (ev) => {
     const { value } = ev.target;
     canvas.width = value;
     canvas.height = value;
     resCounter.innerText = value;
+  });
+
+  recBtn.addEventListener("click", () => {
+    if (recBtn.rec) {
+
+      recBtn.rec.addEventListener("stop", () => {
+        exportVideo(
+          recLink,
+          new Blob(recBtn.chunks, { type: "video/webm" })
+        );
+      });
+
+      recBtn.rec.stop();
+      recBtn.rec = undefined;
+      recLink.innerText = "download";
+      recBtn.value = "start";
+
+    } else {
+
+      const { rec, chunks } = startRecording(canvas);
+      recBtn.rec = rec;
+      recBtn.chunks = chunks;
+      recBtn.value = "stop";
+      recLink.innerText = "";
+
+    }
   });
 
   canvas.addEventListener("mousemove", (ev) => {

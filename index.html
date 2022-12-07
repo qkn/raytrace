@@ -14,6 +14,9 @@
         image-rendering: pixelated;
         background-color: #ffffff;
       }
+      #options {
+        line-height: 30px;
+      }
     </style>
   </head>
   <body>
@@ -33,6 +36,11 @@
           <label>resolution</label>
           <input id="res-input" type="range" min="10" max="500" value="100" />
           <span id="res-counter">100</span>
+        </div>
+        <div>
+          <label>record</label>
+          <input id="rec-btn" type="button" value="start">
+          <a id="rec-link"></a>
         </div>
         <div>
           <label>surface</label>
