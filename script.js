@@ -175,7 +175,7 @@ class TriangleSurface extends Surface {
     this.invDenom = 1 / (this.dot11 * this.dot22 - this.dot12 * this.dot12);
   }
 
-  rayIntersect (rayOrigin, rayDirection, planeOnly=false) {
+  rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
     const denom = Vector.dot(this.normal, rayDirection);
 
     if (denom === 0) {
@@ -185,7 +185,7 @@ class TriangleSurface extends Surface {
 
     const t = -(Vector.dot(this.normal, rayOrigin) + this.d) / denom;
 
-    if (t < 0) {
+    if (t < 0 || t >= tMax) {
       return null;
     }
 
@@ -227,13 +227,10 @@ class SphereSurface extends Surface {
     this.r2 = r ** 2;
   }
 
-  rayIntersect (rayOrigin, rayDirection) {
+  rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
     // Make sphere center the new origin
     const relOrigin = Vector.sub(rayOrigin, this.relPos);
 
-    if (Math.abs(Vector.norm(rayDirection) - 1) > 0.1) {
-      alert(Vector.norm(rayDirection));
-    }
     const bHalf = Vector.dot(relOrigin, rayDirection);
     const c = Vector.norm(relOrigin) ** 2 - this.r2;
 
@@ -247,7 +244,7 @@ class SphereSurface extends Surface {
 
     const t1 = -bHalf - root;
 
-    if (t1 > 0) {
+    if (t1 > 0 && t1 < tMax) {
       const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t1));
       const normal = Vector.sub(p, this.relPos);
       Vector.inormalize(normal);
@@ -257,7 +254,7 @@ class SphereSurface extends Surface {
 
     const t2 = -bHalf + root;
 
-    if (t2 > 0) {
+    if (t2 > 0 && t2 < tMax) {
       const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
       const normal = Vector.sub(this.relPos, p);
       Vector.inormalize(normal);
@@ -287,7 +284,7 @@ class CylinderSurface extends Surface {
     this.relEnd = this.end;
   }
 
-  rayIntersect (rayOrigin, rayDirection) {
+  rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
     // Make sphere center the new origin
     const relOrigin = Vector.sub(rayOrigin, this.relPos);
 
@@ -312,7 +309,7 @@ class CylinderSurface extends Surface {
     const t1 = (-bHalf - root) / a;
     const t2 = (-bHalf + root) / a;
 
-    if (t1 < 0 && t2 < 0) {
+    if ((t1 < 0 || t1 >= tMax) && (t2 < 0 || t2 >= tMax)) {
       return null;
     }
 
@@ -394,8 +391,8 @@ function rayHitSurface (rayOrigin, rayDirection, drawables) {
 
   for (const drawable of drawables) {
     for (const surface of drawable.surfaces) {
-      const hit = surface.rayIntersect(rayOrigin, rayDirection);
-      if (hit !== null && hit.t < result.t) {
+      const hit = surface.rayIntersect(rayOrigin, rayDirection, result.t, false);
+      if (hit !== null) {
         result.surface = surface;
         result.t = hit.t;
         result.p = hit.p;
@@ -409,7 +406,7 @@ function rayHitSurface (rayOrigin, rayDirection, drawables) {
 
 // Checks whether a surface is the first one hit by a ray
 function firstHitIs (rayOrigin, rayDirection, drawables, target) {
-  const hit0 = target.rayIntersect(rayOrigin, rayDirection, true);
+  const hit0 = target.rayIntersect(rayOrigin, rayDirection, Infinity, true);
 
   if (hit0 === null) {
     return false;
@@ -422,8 +419,8 @@ function firstHitIs (rayOrigin, rayDirection, drawables, target) {
       if (surface === target || surface.noShadow) {
         continue;
       }
-      const hit = surface.rayIntersect(rayOrigin, rayDirection);
-      if (hit !== null && hit.t < t0) {
+      const hit = surface.rayIntersect(rayOrigin, rayDirection, t0, false);
+      if (hit !== null) {
         return false;
       }
     }
