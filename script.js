@@ -307,34 +307,35 @@ class CylinderSurface extends Surface {
     const root = Math.sqrt(discrim);
 
     const t1 = (-bHalf - root) / a;
+
+    if (t1 > 0 && t1 < tMax) {
+      const p1 = Vector.add(rayOrigin, Vector.scale(rayDirection, t1));
+      const c1 = Vector.sub(p1, this.relPos);
+      const d1 = Vector.dot(this.relAxis, c1);
+
+      if (d1 > 0 && d1 < this.height) {
+        const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d1));
+        const normal = Vector.sub(p1, offset);
+        Vector.inormalize(normal);
+
+        return { t: t1, p: p1, normal };
+      }
+    }
+
     const t2 = (-bHalf + root) / a;
 
-    if ((t1 < 0 || t1 >= tMax) && (t2 < 0 || t2 >= tMax)) {
-      return null;
-    }
+    if (t2 > 0 && t2 < tMax) {
+      const p2 = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
+      const c2 = Vector.sub(p2, this.relPos);
+      const d2 = Vector.dot(this.relAxis, c2);
 
-    const p1 = Vector.add(rayOrigin, Vector.scale(rayDirection, t1));
-    const c1 = Vector.sub(p1, this.relPos);
-    const d1 = Vector.dot(this.relAxis, c1);
+      if (d2 > 0 && d2 < this.height) {
+        const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d2));
+        const normal = Vector.sub(offset, p2);
+        Vector.inormalize(normal);
 
-    if (d1 > 0 && d1 < this.height) {
-      const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d1));
-      const normal = Vector.sub(p1, offset);
-      Vector.inormalize(normal);
-
-      return { t: t1, p: p1, normal };
-    }
-
-    const p2 = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
-    const c2 = Vector.sub(p2, this.relPos);
-    const d2 = Vector.dot(this.relAxis, c2);
-
-    if (d2 > 0 && d2 < this.height) {
-      const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d2));
-      const normal = Vector.sub(offset, p2);
-      Vector.inormalize(normal);
-
-      return { t: t2, p: p2, normal }; 
+        return { t: t2, p: p2, normal }; 
+      }
     }
 
     return null;
