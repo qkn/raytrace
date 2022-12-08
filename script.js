@@ -131,8 +131,10 @@ class Matrix {
 }
 
 class Surface {
-  constructor ({ color }) {
+  constructor ({ color, glow, noShadow }) {
     this.color = color;
+    this.glow = glow;
+    this.noShadow = noShadow;
   }
 }
 
@@ -217,8 +219,8 @@ class TriangleSurface extends Surface {
 }
 
 class SphereSurface extends Surface {
-  constructor ({ color, pos, r }) {
-    super({ color });
+  constructor ({ color, pos, r, glow, noShadow }) {
+    super({ color, glow, noShadow });
     this.pos = pos;
     this.relPos = pos;
     this.r = r;
@@ -240,19 +242,30 @@ class SphereSurface extends Surface {
     if (discrim < 0) {
       return null;
     }
+    
+    const root = Math.sqrt(discrim);
 
-    const t = -bHalf - Math.sqrt(discrim);
+    const t1 = -bHalf - root;
 
-    if (t < 0) {
-      return null;
+    if (t1 > 0) {
+      const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t1));
+      const normal = Vector.sub(p, this.relPos);
+      Vector.inormalize(normal);
+
+      return { t: t1, p, normal };
     }
 
-    const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
+    const t2 = -bHalf + root;
 
-    const normal = Vector.sub(p, this.relPos);
-    Vector.inormalize(normal);
+    if (t2 > 0) {
+      const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
+      const normal = Vector.sub(this.relPos, p);
+      Vector.inormalize(normal);
 
-    return { t, p, normal };
+      return { t: t2, p, normal };
+    }
+    
+    return null;
   }
 
   relative (pos, invmatrix) {
@@ -296,7 +309,7 @@ class CylinderSurface extends Surface {
 
     const root = Math.sqrt(discrim);
 
-    const t1 = (-bHalf- root) / a;
+    const t1 = (-bHalf - root) / a;
     const t2 = (-bHalf + root) / a;
 
     if (t1 < 0 && t2 < 0) {
@@ -406,7 +419,7 @@ function firstHitIs (rayOrigin, rayDirection, drawables, target) {
 
   for (const drawable of drawables) {
     for (const surface of drawable.surfaces) {
-      if (surface === target) {
+      if (surface === target || surface.noShadow) {
         continue;
       }
       const hit = surface.rayIntersect(rayOrigin, rayDirection);
@@ -534,6 +547,13 @@ class Camera {
           }
         }
 
+        if (surface.glow) {
+          for (let i = 0; i < 3; i++) {
+            data[index + i] += surface.color[i] * 0xff;
+          }
+          continue;
+        }
+
         for (const light of lights) {
           const incoming = Vector.sub(p, light.relPos);
 
@@ -546,6 +566,10 @@ class Camera {
           }
 
           const b = -Vector.dot(normal, incoming) / norm**2;
+
+          if (b < 0) {
+            continue;
+          }
 
           for (let i = 0; i < 3; i++) {
             data[index + i] += surface.color[i] * 0xff * b * light.color[i];
@@ -575,7 +599,7 @@ class Drawable extends Tickable {
 }
 
 class Ball extends Drawable {
-  constructor ({ pos, r, color, tick, transform }) {
+  constructor ({ pos, r, color, tick, transform, glow, noShadow }) {
     super({
       pos,
       tick,
@@ -584,7 +608,9 @@ class Ball extends Drawable {
         new SphereSurface({
           color,
           pos: [0, 0, 0],
-          r
+          r,
+          glow,
+          noShadow
         })
       ]
     });
@@ -659,6 +685,306 @@ class Ramp extends Drawable {
   }
 }
 
+class House extends Drawable {
+  constructor ({ pos, tick, transform }) {
+    let i = 0;
+    const colors = [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+      [1, 1, 0]
+    ];
+    const color = () => {
+      i++;
+      return colors[i % colors.length];
+    };
+    super({
+      pos,
+      tick,
+      transform,
+      surfaces: [
+        // Roof
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [0, 30, 0],
+            [-20, 20, -20],
+            [20, 20, -20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [0, 30, 0],
+            [-20, 20, 20],
+            [20, 20, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [0, 30, 0],
+            [20, 20, -20],
+            [20, 20, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [0, 30, 0],
+            [-20, 20, -20],
+            [-20, 20, 20]
+          ]
+        }),
+        // Door side
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, -20],
+            [-20, 0, -20],
+            [-5, 0, -20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, -20],
+            [-5, 20, -20],
+            [-5, 0, -20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, -20],
+            [20, 0, -20],
+            [5, 0, -20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, -20],
+            [5, 20, -20],
+            [5, 0, -20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [5, 20, -20],
+            [-5, 20, -20],
+            [-5, 15, -20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-5, 15, -20],
+            [5, 15, -20],
+            [5, 20, -20]
+          ]
+        }),
+        // Back side
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, 20],
+            [-20, 0, 20],
+            [-5, 0, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, 20],
+            [-5, 20, 20],
+            [-5, 0, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, 20],
+            [20, 0, 20],
+            [5, 0, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, 20],
+            [5, 20, 20],
+            [5, 0, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [5, 20, 20],
+            [-5, 20, 20],
+            [-5, 15, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-5, 15, 20],
+            [5, 15, 20],
+            [5, 20, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [5, 5, 20],
+            [-5, 5, 20],
+            [-5, 0, 20]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-5, 0, 20],
+            [5, 0, 20],
+            [5, 5, 20]
+          ]
+        }),
+        // Right side
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, -20],
+            [20, 0, -20],
+            [20, 0, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, -20],
+            [20, 20, -5],
+            [20, 0, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, 20],
+            [20, 0, 20],
+            [20, 0, 5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, 20],
+            [20, 20, 5],
+            [20, 0, 5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 20, 5],
+            [20, 20, -5],
+            [20, 15, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 15, -5],
+            [20, 15, 5],
+            [20, 20, 5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 5, 5],
+            [20, 5, -5],
+            [20, 0, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [20, 0, -5],
+            [20, 0, 5],
+            [20, 5, 5]
+          ]
+        }),
+        // Left side
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, -20],
+            [-20, 0, -20],
+            [-20, 0, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, -20],
+            [-20, 20, -5],
+            [-20, 0, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, 20],
+            [-20, 0, 20],
+            [-20, 0, 5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, 20],
+            [-20, 20, 5],
+            [-20, 0, 5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 20, 5],
+            [-20, 20, -5],
+            [-20, 15, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 15, -5],
+            [-20, 15, 5],
+            [-20, 20, 5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 5, 5],
+            [-20, 5, -5],
+            [-20, 0, -5]
+          ]
+        }),
+        new TriangleSurface({
+          color: color(),
+          vertices: [
+            [-20, 0, -5],
+            [-20, 0, 5],
+            [-20, 5, 5]
+          ]
+        }),
+      ]
+    });
+  }
+}
+
 class Animation {
   static circle ({ r, speed }) {
     return (obj, t) => {
@@ -669,7 +995,7 @@ class Animation {
   }
 }
 
-const drawables = [
+const drawables1 = [
   new Ramp({
     pos: [0, 0, 10],
     color: [0, 1, 0]
@@ -685,9 +1011,18 @@ const drawables = [
   }),
   new Ball({
     pos: [0, 10, -5],
-    color: [0, 0, 0],
+    color: [1, 1, 0.8],
     r: 1,
-    tick: Animation.circle({ r: 22, speed: 1 })
+    tick: Animation.circle({ r: 20, speed: 1 }),
+    glow: true,
+    noShadow: true
+  }),
+  new Ball({
+    pos: [10, 20, -30],
+    color: [1, 1, 0.8],
+    r: 1,
+    glow: true,
+    noShadow: true
   }),
   new Cylinder({
     pos: [20, -10, -10],
@@ -715,15 +1050,61 @@ const drawables = [
         color: [0, 0, 1],
         vertices: [
           [-50, -10, 50],
-          [50, -10, 50],
-          [50, -10, -50]
+          [50, -10, -50],
+          [50, -10, 50]
         ]
       })
     ]
   })
 ];
 
-const lights = [
+const drawables2 = [
+  new Drawable({
+    pos: [0, 0, 0],
+    surfaces: [
+      new TriangleSurface({
+        color: [0.6, 0.4, 0.2],
+        vertices: [
+          [-50, -10, -50],
+          [50, -10, -50],
+          [-50, -10, 50]
+        ]
+      }),
+      new TriangleSurface({
+        color: [0.2, 0.4, 0.6],
+        vertices: [
+          [-50, -10, 50],
+          [50, -10, -50],
+          [50, -10, 50]
+        ]
+      })
+    ]
+  }),
+  new House({
+    pos: [0, -10, 0]
+  }),
+  new Ball({
+    pos: [0, 0, 0],
+    r: 2,
+    color: [1, 0, 1]
+  }),
+  new Ball({
+    pos: [0, 5, 0],
+    r: 1,
+    color: [1, 1, 0.8],
+    tick: Animation.circle({ r: 8, speed: 1 }),
+    glow: true,
+    noShadow: true
+  }),
+  new Cylinder({
+    pos: [-10, -10, -10],
+    r: 3,
+    height: 5,
+    color: [0.7, 0.9, 0.7]
+  })
+];
+
+const lights1 = [
   new LightSource({
     pos: [0, 20, 0],
     color: [500, 500, 500],
@@ -735,13 +1116,29 @@ const lights = [
   })
 ];
 
+const lights2 = [
+  new LightSource({
+    pos: [0, 5, 0],
+    color: [80, 80, 80],
+    tick: Animation.circle({ r: 8, speed: 5 })
+  }),
+  new LightSource({
+    pos: [0, 50, 0],
+    color: [1000, 1000, 1000],
+  }),
+  new LightSource({
+    pos: [-60, 20, -60],
+    color: [1000, 1000, 1000],
+  }),
+];
+
 const scene = new Scene({
-  drawables,
-  lights
+  drawables: drawables1,
+  lights: lights1
 });
 
 const camera = new Camera({
-  pos: [0, 0, -30],
+  pos: [0, 0, -40],
   direction: [0, 0, 1]
 });
 
@@ -755,6 +1152,11 @@ const speed = 0.04;
 let t0 = 0;
 let stats0 = 0;
 const times = [];
+
+// tick
+let realtime = true;
+let timestep = 1000 / 30;
+let t2 = 0;
 
 addEventListener("keydown", (ev) => {
   cache.add(ev.key);
@@ -801,6 +1203,7 @@ addEventListener("load", () => {
   const resInput = document.getElementById("res-input");
   const recBtn = document.getElementById("rec-btn");
   const recLink = document.getElementById("rec-link");
+  const realtimeInput = document.getElementById("realtime-input");
 
   fovInput.addEventListener("input", (ev) => {
     const { value } = ev.target;
@@ -842,6 +1245,10 @@ addEventListener("load", () => {
     }
   });
 
+  realtimeInput.addEventListener("change", (ev) => {
+    realtime = ev.target.checked;
+  });
+
   canvas.addEventListener("mousemove", (ev) => {
     if (document.pointerLockElement !== canvas) {
       const scale = canvas.width / canvas.clientWidth;
@@ -864,18 +1271,20 @@ addEventListener("load", () => {
   });
 
   function animate (t) {
-    const dt = Math.min(t - t0, 100);
+    const dt = realtime ? Math.min(t - t0, 100) : timestep;
     t0 = t;
-    times.push(t);
+    t2 += dt;
 
     if (t - stats0 > 500) {
       while (times.length > 0 && times[0] <= t - 1000) {
         times.shift();
       }
   
-      fpsCounter.innerText = times.length;
+      fpsCounter.innerText = times.length || "<1";
       stats0 = t;
     }
+
+    times.push(t);
 
     const translate = [
       pressed("d") - pressed("a"),
@@ -897,7 +1306,7 @@ addEventListener("load", () => {
       Vector.iadd(camera.pos, Vector.scale(delta, speed * dt));
     }
 
-    scene.tick(t);
+    scene.tick(realtime ? t : t2);
 
     camera.render(ctx, scene);
 
