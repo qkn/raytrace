@@ -1,60 +1,66 @@
 
-class Vector {
+class Vector3 {
   // vec1 + vec2
   static add (vec1, vec2) {
-    let result = new Array(vec1.length);
-    for (let i = 0; i < vec1.length; i++) {
-      result[i] = vec1[i] + vec2[i];
-    }
-    return result;
+    return [
+      vec1[0] + vec2[0],
+      vec1[1] + vec2[1],
+      vec1[2] + vec2[2],
+    ];
   }
 
   static iadd (vec1, vec2) {
-    for (let i = 0; i < vec1.length; i++) {
-      vec1[i] = vec1[i] + vec2[i];
-    }
+    vec1[0] += vec2[0];
+    vec1[1] += vec2[1];
+    vec1[2] += vec2[2];
   }
 
   // vec1 - vec2
   static sub (vec1, vec2) {
-    let result = new Array(vec1.length);
-    for (let i = 0; i < vec1.length; i++) {
-      result[i] = vec1[i] - vec2[i];
-    }
-    return result;
+    return [
+      vec1[0] - vec2[0],
+      vec1[1] - vec2[1],
+      vec1[2] - vec2[2],
+    ];
+  }
+
+  static isub (vec1, vec2) {
+    vec1[0] -= vec2[0];
+    vec1[1] -= vec2[1];
+    vec1[2] -= vec2[2];
   }
 
   // scalar * vec
   static scale (vec, scalar) {
-    let result = new Array(vec.length);
-    for (let i = 0; i < vec.length; i++) {
-      result[i] = scalar * vec[i];
-    }
-    return result;
+    return [
+      vec[0] * scalar,
+      vec[1] * scalar,
+      vec[2] * scalar,
+    ];
   }
 
   static iscale (vec, scalar) {
-    for (let i = 0; i < vec.length; i++) {
-      vec[i] = scalar * vec[i];
-    }
+    vec[0] *= scalar;
+    vec[1] *= scalar;
+    vec[2] *= scalar;
   }
 
   // get norm of vec
   static norm (vec) {
-    let sum = 0;
-    for (let i = 0; i < vec.length; i++) {
-      sum += vec[i] ** 2;
-    }
-    return Math.sqrt(sum);
+    return Math.sqrt(
+      vec[0]**2
+      + vec[1]**2
+      + vec[2]**2
+    );
   }
 
   // scale vec to norm 1
   static normalize (vec) {
-    return Vector.scale(vec, 1 / Vector.norm(vec))
+    return Vector3.scale(vec, 1 / Vector3.norm(vec))
   }
 
   static inormalize (vec) {
-    Vector.iscale(vec, 1 / Vector.norm(vec));
+    Vector3.iscale(vec, 1 / Vector3.norm(vec));
   }
 
   // vec1 x vec2
@@ -68,11 +74,11 @@ class Vector {
 
   // vec1 . vec2
   static dot (vec1, vec2) {
-    let sum = 0;
-    for (let i = 0; i < vec1.length; i++) {
-      sum += vec1[i] * vec2[i];
-    }
-    return sum;
+    return (
+      vec1[0] * vec2[0]
+      + vec1[1] * vec2[1]
+      + vec1[2] * vec2[2]
+    );
   }
 }
 
@@ -147,7 +153,7 @@ class TriangleSurface extends Surface {
 
   relative (pos, invmatrix) {
     this.relVertices = this.vertices.map(
-      vertex => Vector.sub(vertex, pos));
+      vertex => Vector3.sub(vertex, pos));
     
     this.relVertices = this.relVertices.map(
       vertex => Matrix.pmultiply(invmatrix, vertex));
@@ -158,38 +164,38 @@ class TriangleSurface extends Surface {
   precompute () {
     const [A, B, C] = this.relVertices;
     
-    // Basis vectors
-    this.vec1 = Vector.sub(B, A);
-    this.vec2 = Vector.sub(C, A);
+    // Basis Vector3s
+    this.vec1 = Vector3.sub(B, A);
+    this.vec2 = Vector3.sub(C, A);
 
     // Plane
-    this.normal = Vector.normalize(Vector.cross(this.vec1, this.vec2));
-    this.negNormal = Vector.scale(this.normal, -1);
-    this.d = -Vector.dot(this.normal, A);
+    this.normal = Vector3.normalize(Vector3.cross(this.vec1, this.vec2));
+    this.negNormal = Vector3.scale(this.normal, -1);
+    this.d = -Vector3.dot(this.normal, A);
     this.plane = [...this.normal, this.d];
 
     // Dot products for point in triangle check
-    this.dot11 = Vector.dot(this.vec1, this.vec1);
-    this.dot12 = Vector.dot(this.vec1, this.vec2);
-    this.dot22 = Vector.dot(this.vec2, this.vec2);
+    this.dot11 = Vector3.dot(this.vec1, this.vec1);
+    this.dot12 = Vector3.dot(this.vec1, this.vec2);
+    this.dot22 = Vector3.dot(this.vec2, this.vec2);
     this.invDenom = 1 / (this.dot11 * this.dot22 - this.dot12 * this.dot12);
   }
 
   rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
-    const denom = Vector.dot(this.normal, rayDirection);
+    const denom = Vector3.dot(this.normal, rayDirection);
 
     if (denom === 0) {
       // Ray is parallel to plane, thus no intersect
       return null;
     }
 
-    const t = -(Vector.dot(this.normal, rayOrigin) + this.d) / denom;
+    const t = -(Vector3.dot(this.normal, rayOrigin) + this.d) / denom;
 
     if (t < 0 || t >= tMax) {
       return null;
     }
 
-    const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t));
+    const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t));
 
     if (planeOnly || this.containsPoint(p)) {
       return { t, p, normal: denom > 0 ? this.negNormal : this.normal };
@@ -199,11 +205,11 @@ class TriangleSurface extends Surface {
   }
 
   containsPoint (p) {
-    const vec3 = Vector.sub(p, this.relVertices[0]);
+    const vec3 = Vector3.sub(p, this.relVertices[0]);
 
     // Compute dot products
-    const dot13 = Vector.dot(this.vec1, vec3);
-    const dot23 = Vector.dot(this.vec2, vec3);
+    const dot13 = Vector3.dot(this.vec1, vec3);
+    const dot23 = Vector3.dot(this.vec2, vec3);
 
     // Compute barycentric coordinates
     const u = (this.dot22 * dot13 - this.dot12 * dot23) * this.invDenom;
@@ -229,10 +235,10 @@ class SphereSurface extends Surface {
 
   rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
     // Make sphere center the new origin
-    const relOrigin = Vector.sub(rayOrigin, this.relPos);
+    const relOrigin = Vector3.sub(rayOrigin, this.relPos);
 
-    const bHalf = Vector.dot(relOrigin, rayDirection);
-    const c = Vector.norm(relOrigin) ** 2 - this.r2;
+    const bHalf = Vector3.dot(relOrigin, rayDirection);
+    const c = Vector3.norm(relOrigin) ** 2 - this.r2;
 
     const discrim = bHalf**2 - c;
 
@@ -245,9 +251,9 @@ class SphereSurface extends Surface {
     const t1 = -bHalf - root;
 
     if (t1 > 0 && t1 < tMax) {
-      const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t1));
-      const normal = Vector.sub(p, this.relPos);
-      Vector.inormalize(normal);
+      const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t1));
+      const normal = Vector3.sub(p, this.relPos);
+      Vector3.inormalize(normal);
 
       return { t: t1, p, normal };
     }
@@ -255,9 +261,9 @@ class SphereSurface extends Surface {
     const t2 = -bHalf + root;
 
     if (t2 > 0 && t2 < tMax) {
-      const p = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
-      const normal = Vector.sub(this.relPos, p);
-      Vector.inormalize(normal);
+      const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t2));
+      const normal = Vector3.sub(this.relPos, p);
+      Vector3.inormalize(normal);
 
       return { t: t2, p, normal };
     }
@@ -266,7 +272,7 @@ class SphereSurface extends Surface {
   }
 
   relative (pos, invmatrix) {
-    this.relPos = Vector.sub(this.pos, pos);
+    this.relPos = Vector3.sub(this.pos, pos);
 
     this.relPos = Matrix.pmultiply(invmatrix, this.relPos);
   }
@@ -280,19 +286,19 @@ class CylinderSurface extends Surface {
     this.r = r;
     this.r2 = r ** 2;
     this.height = height;
-    this.end = Vector.add(pos, [0, height, 0]);
+    this.end = Vector3.add(pos, [0, height, 0]);
     this.relEnd = this.end;
   }
 
   rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
     // Make sphere center the new origin
-    const relOrigin = Vector.sub(rayOrigin, this.relPos);
+    const relOrigin = Vector3.sub(rayOrigin, this.relPos);
 
     const [x0, y0, z0] = relOrigin;
     const [xd, yd, zd] = rayDirection;
 
-    const dot1 = Vector.dot(this.relAxis, rayDirection);
-    const dot2 = Vector.dot(this.relAxis, relOrigin);
+    const dot1 = Vector3.dot(this.relAxis, rayDirection);
+    const dot2 = Vector3.dot(this.relAxis, relOrigin);
 
     const a = xd ** 2 + yd ** 2 + zd ** 2 - dot1 ** 2;
     const bHalf = x0 * xd + y0 * yd + z0 * zd - dot2 * dot1;
@@ -309,14 +315,14 @@ class CylinderSurface extends Surface {
     const t1 = (-bHalf - root) / a;
 
     if (t1 > 0 && t1 < tMax) {
-      const p1 = Vector.add(rayOrigin, Vector.scale(rayDirection, t1));
-      const c1 = Vector.sub(p1, this.relPos);
-      const d1 = Vector.dot(this.relAxis, c1);
+      const p1 = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t1));
+      const c1 = Vector3.sub(p1, this.relPos);
+      const d1 = Vector3.dot(this.relAxis, c1);
 
       if (d1 > 0 && d1 < this.height) {
-        const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d1));
-        const normal = Vector.sub(p1, offset);
-        Vector.inormalize(normal);
+        const offset = Vector3.add(this.relPos, Vector3.scale(this.relAxis, d1));
+        const normal = Vector3.sub(p1, offset);
+        Vector3.inormalize(normal);
 
         return { t: t1, p: p1, normal };
       }
@@ -325,14 +331,14 @@ class CylinderSurface extends Surface {
     const t2 = (-bHalf + root) / a;
 
     if (t2 > 0 && t2 < tMax) {
-      const p2 = Vector.add(rayOrigin, Vector.scale(rayDirection, t2));
-      const c2 = Vector.sub(p2, this.relPos);
-      const d2 = Vector.dot(this.relAxis, c2);
+      const p2 = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t2));
+      const c2 = Vector3.sub(p2, this.relPos);
+      const d2 = Vector3.dot(this.relAxis, c2);
 
       if (d2 > 0 && d2 < this.height) {
-        const offset = Vector.add(this.relPos, Vector.scale(this.relAxis, d2));
-        const normal = Vector.sub(offset, p2);
-        Vector.inormalize(normal);
+        const offset = Vector3.add(this.relPos, Vector3.scale(this.relAxis, d2));
+        const normal = Vector3.sub(offset, p2);
+        Vector3.inormalize(normal);
 
         return { t: t2, p: p2, normal }; 
       }
@@ -342,14 +348,14 @@ class CylinderSurface extends Surface {
   }
 
   relative (pos, invmatrix) {
-    this.relPos = Vector.sub(this.pos, pos);
+    this.relPos = Vector3.sub(this.pos, pos);
     this.relPos = Matrix.pmultiply(invmatrix, this.relPos);
 
-    this.relEnd = Vector.sub(this.end, pos);
+    this.relEnd = Vector3.sub(this.end, pos);
     this.relEnd = Matrix.pmultiply(invmatrix, this.relEnd);
 
-    this.relAxis = Vector.sub(this.relEnd, this.relPos);
-    Vector.inormalize(this.relAxis);
+    this.relAxis = Vector3.sub(this.relEnd, this.relPos);
+    Vector3.inormalize(this.relAxis);
   }
 }
 
@@ -375,7 +381,7 @@ class LightSource extends Tickable {
   }
 
   relative (pos, invmatrix) {
-    this.relPos = Vector.sub(this.pos, pos);
+    this.relPos = Vector3.sub(this.pos, pos);
 
     this.relPos = Matrix.pmultiply(invmatrix, this.relPos);
   }
@@ -390,8 +396,10 @@ function rayHitSurface (rayOrigin, rayDirection, drawables) {
     normal: null
   }
 
-  for (const drawable of drawables) {
-    for (const surface of drawable.surfaces) {
+  for (let d = 0; d < drawables.length; d++) {
+    const surfaces = drawables[d].surfaces;
+    for (let s = 0; s < surfaces.length; s++) {
+      const surface = surfaces[s];
       const hit = surface.rayIntersect(rayOrigin, rayDirection, result.t, false);
       if (hit !== null) {
         result.surface = surface;
@@ -520,7 +528,7 @@ class Camera {
         direction[0] = x;
         direction[1] = y;
         direction[2] = dis;
-        Vector.inormalize(direction);
+        Vector3.inormalize(direction);
 
         // Find the first surface the ray hits
         const { surface, t, p, normal } = rayHitSurface(
@@ -553,24 +561,26 @@ class Camera {
         }
 
         for (const light of lights) {
-          const incoming = Vector.sub(p, light.relPos);
+          const incoming = Vector3.sub(p, light.relPos);
 
-          const norm = Vector.norm(incoming);
-          Vector.iscale(incoming, 1 / norm); // Normalize
+          const norm = Vector3.norm(incoming);
+          Vector3.iscale(incoming, 1 / norm); // Normalize
 
           if (!firstHitIs(light.relPos, incoming, drawables, surface)) {
             // Light is obstructed
             continue;
           }
 
-          const b = -Vector.dot(normal, incoming) / norm**2;
+          const dot = Vector3.dot(normal, incoming);
 
-          if (b < 0) {
+          if (dot > 0) {
             continue;
           }
 
+          const b = -0xff * dot / norm**2; 
+
           for (let i = 0; i < 3; i++) {
-            data[index + i] += surface.color[i] * 0xff * b * light.color[i];
+            data[index + i] += surface.color[i] * b * light.color[i];
           }
         }
       }
@@ -589,7 +599,7 @@ class Drawable extends Tickable {
   }
 
   relative (pos, invmatrix) {
-    const relPos = Vector.sub(pos, this.pos);
+    const relPos = Vector3.sub(pos, this.pos);
     this.surfaces.forEach(surface => {
       surface.relative(relPos, invmatrix);
     });
@@ -988,7 +998,7 @@ class Animation {
     return (obj, t) => {
       const p = speed * t / 1000;
       const delta = [Math.cos(p), 0, -Math.sin(p)];
-      obj.pos = Vector.add(obj.origPos, Vector.scale(delta, r));
+      obj.pos = Vector3.add(obj.origPos, Vector3.scale(delta, r));
     }
   }
 }
@@ -1299,9 +1309,9 @@ addEventListener("load", () => {
     const mat = Matrix.yaw(camera.yaw);
     const delta = Matrix.pmultiply(mat, translate);
     
-    if (Vector.norm(delta) !== 0) {
-      Vector.inormalize(delta);
-      Vector.iadd(camera.pos, Vector.scale(delta, speed * dt));
+    if (Vector3.norm(delta) !== 0) {
+      Vector3.inormalize(delta);
+      Vector3.iadd(camera.pos, Vector3.scale(delta, speed * dt));
     }
 
     scene.tick(realtime ? t : t2);
