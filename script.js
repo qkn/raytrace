@@ -1,4 +1,7 @@
 
+const NEG_EPSILON = -Number.EPSILON;
+const ONE_PLUS_EPSILON = 1 + Number.EPSILON;
+
 class Vector3 {
   // vec1 + vec2
   static add (vec1, vec2) {
@@ -217,9 +220,9 @@ class TriangleSurface extends Surface {
 
     // Check if point is in triangle
     return (
-      (u >= -Number.EPSILON)
-      && (v >= -Number.EPSILON)
-      && (u + v <= 1 + Number.EPSILON)
+      (u >= NEG_EPSILON)
+      && (v >= NEG_EPSILON)
+      && (u + v <= ONE_PLUS_EPSILON)
     );
   }
 }
@@ -294,8 +297,13 @@ class CylinderSurface extends Surface {
     // Make sphere center the new origin
     const relOrigin = Vector3.sub(rayOrigin, this.relPos);
 
-    const [x0, y0, z0] = relOrigin;
-    const [xd, yd, zd] = rayDirection;
+    const x0 = relOrigin[0];
+    const y0 = relOrigin[1];
+    const z0 = relOrigin[2];
+
+    const xd = rayDirection[0];
+    const yd = rayDirection[1];
+    const zd = rayDirection[2];
 
     const dot1 = Vector3.dot(this.relAxis, rayDirection);
     const dot2 = Vector3.dot(this.relAxis, relOrigin);
@@ -423,8 +431,10 @@ function firstHitIs (rayOrigin, rayDirection, drawables, target) {
 
   const t0 = hit0.t;
 
-  for (const drawable of drawables) {
-    for (const surface of drawable.surfaces) {
+  for (let d = 0; d < drawables.length; d++) {
+    const surfaces = drawables[d].surfaces;
+    for (let s = 0; s < surfaces.length; s++) {
+      const surface = surfaces[s];
       if (surface === target || surface.noShadow) {
         continue;
       }
