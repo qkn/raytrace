@@ -1028,10 +1028,10 @@ const drawables1 = [
     r: 5
   }),
   new Ball({
-    pos: [0, 10, -5],
+    pos: [0, 10, 5],
     color: [1, 1, 0.8],
     r: 1,
-    tick: Animation.circle({ r: 20, speed: 1 }),
+    tick: Animation.circle({ r: 25, speed: 1 }),
     glow: true,
     noShadow: true
   }),
@@ -1124,9 +1124,9 @@ const drawables2 = [
 
 const lights1 = [
   new LightSource({
-    pos: [0, 20, 0],
+    pos: [0, 20, 5],
     color: [500, 500, 500],
-    tick: Animation.circle({ r: 20, speed: 1 })
+    tick: Animation.circle({ r: 25, speed: 1 })
   }),
   new LightSource({
     pos: [10, 20, -30],
