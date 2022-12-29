@@ -1,0 +1,17 @@
+
+#main {
+  display: flex;
+  gap: 8px;
+}
+
+canvas {
+  width: 500px;
+  border: 1px solid #cccccc;
+  image-rendering: pixelated;
+  background-color: #000000;
+  flex-shrink: 0;
+}
+
+#options {
+  line-height: 30px;
+}
