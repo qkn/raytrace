@@ -1,5 +1,5 @@
 
-import { rayHitSurface, firstHitIs } from "./rays.js";
+import { serializeDrawables, serializeLights } from "./serialize.js";
 
 export class Vector3 {
   // vec1 + vec2
@@ -181,8 +181,12 @@ export class Scene {
   }
 
   relative (pos, invmatrix) {
-    this.drawables.forEach(drawable => drawable.relative(pos, invmatrix));
-    this.lights.forEach(light => light.relative(pos, invmatrix));
+    for (const light of this.lights) {
+      light.relative(pos, invmatrix)
+    }
+    for (const drawable of this.drawables) {
+      drawable.relative(pos, invmatrix)
+    }
   }
 
   tick (t) {
@@ -204,13 +208,23 @@ export class Camera {
 
     this.setDirection(direction);
 
-    this.rebind = true;
+    this.rebind = false;
+
+    this.renderers = [];
+    for (let i = 0; i < navigator.hardwareConcurrency; i++) {
+      const worker = new Worker("./js/renderer.js");
+      this.renderers.push(worker);
+    }
   }
 
   bind (ctx) {
     this.ctx = ctx;
     const { width, height } = ctx.canvas;
-    this.image = ctx.createImageData(width, height);
+    this.image = new ImageData(width, height);
+
+    // shared image data
+    const sharedBuffer = new SharedArrayBuffer(4 * width * height);
+    this.sharedData = new Uint8ClampedArray(sharedBuffer);
   }
 
   setDirection (direction) {
@@ -247,100 +261,40 @@ export class Camera {
     }
 
     const { width, height } = this.ctx.canvas;
-    const { data } = this.image;
-    
-    const halfWidth = width / 2;
-    const halfHeight = height / 2;
+    const data = this.sharedData;
 
     // Distance from camera to screen
-    const dis = halfWidth / Math.tan(this.fov / 2);
+    const dis = 0.5 * width / Math.tan(this.fov / 2);
     
     // Get lights and surfaces
-    const { drawables, lights } = scene;
+    const drawablesSer = serializeDrawables(scene.drawables);
+    const lightsSer = serializeLights(scene.lights);
 
     scene.relative(this.pos, this.invmatrix());
 
     const origin = [0, 0, 0];
 
-    const direction = new Array(3);
-
     const [cursorX, cursorY] = this.cursorPos;
     const lock = document.pointerLockElement === this.ctx.canvas;
 
-    let index = -4;
-    
-    for (let screenY = 0; screenY < height; screenY++) {
-      for (let screenX = 0; screenX < width; screenX++) {
-        const x = screenX - halfWidth;
-        const y = halfHeight - screenY;
+    // Divide into stripes
+    const numStripes = this.renderers.length;
+    const stripeHeight = Math.floor(height / numStripes);
 
-        // Pixel index
-        index += 4;
+    // Send to workers
+    for (let i = 0; i < numStripes; i++) {
+      const worker = this.renderers[i];
 
-        // Ray passing through camera (0, 0, 0) and pixel on screen
-        direction[0] = x;
-        direction[1] = y;
-        direction[2] = dis;
-        Vector3.inormalize(direction);
+      const startY = stripeHeight * i;
+      const stopY = i + 1 === numStripes // Last stripe?
+        ? height // Yes: Render to y = height
+        : stripeHeight * (i + 1); // No: Render to next stripe
 
-        // Find the first surface the ray hits
-        const { surface, t, p, normal } = rayHitSurface(
-          origin, direction, drawables);
-
-        // Set pixel to black by default
-        for (let i = 0; i < 3; i++) {
-          data[index + i] = 0;
-        }
-        data[index + 3] = 0xff;
-
-        if (surface === null) {
-          continue;
-        }
-
-        if (!lock && cursorX === screenX && cursorY === screenY) {
-          if (this.surfaceDisplay !== undefined) {
-            this.surfaceDisplay.innerText = JSON.stringify({
-              normal
-            });
-
-            data[index] = 0xff;
-            continue;
-          }
-        }
-
-        if (surface.glow) {
-          for (let i = 0; i < 3; i++) {
-            data[index + i] = surface.color[i] * 0xff;
-          }
-          continue;
-        }
-
-        for (const light of lights) {
-          const incoming = Vector3.sub(p, light.relPos);
-
-          const norm = Vector3.norm(incoming);
-          Vector3.iscale(incoming, 1 / norm); // Normalize
-
-          if (!firstHitIs(light.relPos, incoming, drawables, surface)) {
-            // Light is obstructed
-            continue;
-          }
-
-          const dot = Vector3.dot(normal, incoming);
-
-          if (dot > 0) {
-            continue;
-          }
-
-          const b = -0xff * dot / norm**2; 
-
-          for (let i = 0; i < 3; i++) {
-            data[index + i] += surface.color[i] * b * light.color[i];
-          }
-        }
-      }
+      const options = { startY, stopY, width, height, dis, drawablesSer, lightsSer };
+      worker.postMessage({ data, options });
     }
-
+    
+    this.image.data.set(data);
     this.ctx.putImageData(this.image, 0, 0);
   }
 }

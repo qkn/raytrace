@@ -144,4 +144,4 @@ const scene2 = new Scene({
 });
 
 // todo: add scene selection
-export const scene = scene1;
+export const scene = scene2;

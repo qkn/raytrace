@@ -1,6 +1,6 @@
 
 // Find the first surface that ray intersects
-export function rayHitSurface (rayOrigin, rayDirection, drawables) {
+function rayHitSurface (rayOrigin, rayDirection, drawables) {
   const result = {
     surface: null,
     t: Infinity,
@@ -26,7 +26,7 @@ export function rayHitSurface (rayOrigin, rayDirection, drawables) {
 }
 
 // Checks whether a surface is the first one hit by a ray
-export function firstHitIs (rayOrigin, rayDirection, drawables, target) {
+function firstHitIs (rayOrigin, rayDirection, drawables, target) {
   const hit0 = target.rayIntersect(rayOrigin, rayDirection, Infinity, true);
 
   if (hit0 === null) {

@@ -3,10 +3,16 @@ import { Camera, Vector3, Matrix } from "./classes.js";
 import { scene } from "./scene.js";
 import { startRecording, exportVideo } from "./video.js";
 
+if (!crossOriginIsolated) {
+  throw new Error("Cannot use SharedArrayBuffer");
+}
+
 const camera = new Camera({
   pos: [0, 0, -40],
   direction: [0, 0, 1]
 });
+
+console.log(camera);
 
 // Camera movement
 const inputs = new Set();
@@ -45,8 +51,8 @@ addEventListener("load", () => {
 
   camera.bind(ctx);
 
-  camera.surfaceDisplay = document.getElementById("surface-display");
-
+  // Get option elements
+  const surfaceDisplay = document.getElementById("surface-display");
   const fpsCounter = document.getElementById("fps-counter");
   const fovCounter = document.getElementById("fov-counter");
   const resCounter = document.getElementById("res-counter");
@@ -55,6 +61,9 @@ addEventListener("load", () => {
   const recBtn = document.getElementById("rec-btn");
   const recLink = document.getElementById("rec-link");
   const realtimeInput = document.getElementById("realtime-input");
+
+  // Dsiplay information about the current surface
+  camera.surfaceDisplay = surfaceDisplay;
 
   fovInput.addEventListener("input", (ev) => {
     const { value } = ev.target;
@@ -68,14 +77,13 @@ addEventListener("load", () => {
     canvas.width = value;
     canvas.height = value;
     resCounter.innerText = value;
-    
+
     // schedule rebind for next render
     camera.rebind = true;
   });
 
   recBtn.addEventListener("click", () => {
-    if (recBtn.rec) {
-
+    if (recBtn.rec) { // Stop recording
       recBtn.rec.addEventListener("stop", () => {
         exportVideo(
           recLink,
@@ -87,15 +95,12 @@ addEventListener("load", () => {
       recBtn.rec = undefined;
       recLink.innerText = "download";
       recBtn.value = "start";
-
-    } else {
-
+    } else { // Start recording
       const { rec, chunks } = startRecording(canvas);
       recBtn.rec = rec;
       recBtn.chunks = chunks;
       recBtn.value = "stop";
       recLink.innerText = "";
-
     }
   });
 
