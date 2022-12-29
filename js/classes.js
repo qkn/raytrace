@@ -203,6 +203,14 @@ export class Camera {
     this.cursorPos = [null, null];
 
     this.setDirection(direction);
+
+    this.rebind = true;
+  }
+
+  bind (ctx) {
+    this.ctx = ctx;
+    const { width, height } = ctx.canvas;
+    this.image = ctx.createImageData(width, height);
   }
 
   setDirection (direction) {
@@ -232,10 +240,14 @@ export class Camera {
     );
   }
 
-  render (ctx, scene) {
-    const { width, height } = ctx.canvas;
-    const image = ctx.createImageData(width, height);
-    const { data } = image;
+  render (scene) {
+    if (this.rebind) {
+      this.bind(this.ctx);
+      this.rebind = false;
+    }
+
+    const { width, height } = this.ctx.canvas;
+    const { data } = this.image;
     
     const halfWidth = width / 2;
     const halfHeight = height / 2;
@@ -253,12 +265,17 @@ export class Camera {
     const direction = new Array(3);
 
     const [cursorX, cursorY] = this.cursorPos;
-    const lock = document.pointerLockElement === ctx.canvas;
+    const lock = document.pointerLockElement === this.ctx.canvas;
+
+    let index = -4;
     
     for (let screenY = 0; screenY < height; screenY++) {
       for (let screenX = 0; screenX < width; screenX++) {
         const x = screenX - halfWidth;
         const y = halfHeight - screenY;
+
+        // Pixel index
+        index += 4;
 
         // Ray passing through camera (0, 0, 0) and pixel on screen
         direction[0] = x;
@@ -270,13 +287,15 @@ export class Camera {
         const { surface, t, p, normal } = rayHitSurface(
           origin, direction, drawables);
 
+        // Set pixel to black by default
+        for (let i = 0; i < 3; i++) {
+          data[index + i] = 0;
+        }
+        data[index + 3] = 0xff;
+
         if (surface === null) {
           continue;
         }
-
-        // Draw the pixel
-        const index = 4 * (width * screenY + screenX);
-        data[index + 3] = 0xff;
 
         if (!lock && cursorX === screenX && cursorY === screenY) {
           if (this.surfaceDisplay !== undefined) {
@@ -291,7 +310,7 @@ export class Camera {
 
         if (surface.glow) {
           for (let i = 0; i < 3; i++) {
-            data[index + i] += surface.color[i] * 0xff;
+            data[index + i] = surface.color[i] * 0xff;
           }
           continue;
         }
@@ -322,7 +341,7 @@ export class Camera {
       }
     }
 
-    ctx.putImageData(image, 0, 0);
+    this.ctx.putImageData(this.image, 0, 0);
   }
 }
 

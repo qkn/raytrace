@@ -43,6 +43,8 @@ addEventListener("load", () => {
   const canvas = document.querySelector("#canvas");
   const ctx = canvas.getContext("2d");
 
+  camera.bind(ctx);
+
   camera.surfaceDisplay = document.getElementById("surface-display");
 
   const fpsCounter = document.getElementById("fps-counter");
@@ -66,6 +68,9 @@ addEventListener("load", () => {
     canvas.width = value;
     canvas.height = value;
     resCounter.innerText = value;
+    
+    // schedule rebind for next render
+    camera.rebind = true;
   });
 
   recBtn.addEventListener("click", () => {
@@ -157,7 +162,7 @@ addEventListener("load", () => {
 
     scene.tick(realtime ? t : t2);
 
-    camera.render(ctx, scene);
+    camera.render(scene);
 
     requestAnimationFrame(animate);
   }
