@@ -1,13 +1,24 @@
 
-importScripts("./rays.js", "./vec3.js", "./deserialize.js");
+importScripts("./rays.js", "./vec3.js", "./intersect.js");
 
-const direction = new Array(3);
+// Will be reused on every render
+const direction = new Float32Array(3);
+const incoming = new Float32Array(3);
+const relPos = new Float32Array(3);
+const color = new Float32Array(3);
+const origin = [0, 0, 0];
 
-function render (data, options) {
-  const { startY, stopY, width, height, dis, drawablesSer, lightsSer } = options;
+function render (buffer, options) {
+  const { startY, stopY, width, height, dis, surfacesSer, lightsSer } = options;
 
-  const drawables = deserializeDrawables(drawablesSer);
-  const lights = deserializeLights(lightsSer);
+  // Image data
+  const data = new Uint8ClampedArray(buffer);
+
+  const surfacesMeta = new Uint32Array(surfacesSer);
+  const surfacesTypes = new Uint8Array(surfacesSer, 4);
+  const surfaces = new Float32Array(surfacesSer, surfacesMeta[0]);
+
+  const lights = new Float32Array(lightsSer);
 
   const halfWidth = width / 2;
   const halfHeight = height / 2;
@@ -30,7 +41,7 @@ function render (data, options) {
 
       // Find the first surface the ray hits
       const { surface, t, p, normal } = rayHitSurface(
-        origin, direction, drawables);
+        origin, direction, surfaces);
 
       // Set pixel to black by default
       for (let i = 0; i < 3; i++) {
@@ -62,13 +73,18 @@ function render (data, options) {
         continue;
       }
 
-      for (const light of lights) {
-        const incoming = Vector3.sub(p, light.relPos);
+      for (let j = 0; j < lights.length; j += 6) {
+
+        for (let i = 0; i < 3; i++) {
+          relPos[i] = lights[j + i];
+          color[i] = lights[j + 3 + i];
+          incoming[i] = p[i] - color[i];
+        }
 
         const norm = Vector3.norm(incoming);
         Vector3.iscale(incoming, 1 / norm); // Normalize
 
-        if (!firstHitIs(light.relPos, incoming, drawables, surface)) {
+        if (!firstHitIs(relPos, incoming, surfaces, surface)) {
           // Light is obstructed
           continue;
         }
@@ -82,7 +98,7 @@ function render (data, options) {
         const b = -0xff * dot / norm**2; 
 
         for (let i = 0; i < 3; i++) {
-          data[index + i] += surface.color[i] * b * light.color[i];
+          data[index + i] += surface.color[i] * b * color[i];
         }
       }
     }
@@ -90,7 +106,7 @@ function render (data, options) {
 }
 
 onmessage = (e) => {
-  const { data, options } = e.data;
+  const { buffer, options } = e.data;
 
-  render(data, options);
+  render(buffer, options);
 };

@@ -1,6 +1,4 @@
 
-import { serializeDrawables, serializeLights } from "./serialize.js";
-
 export class Vector3 {
   // vec1 + vec2
   static add (vec1, vec2) {
@@ -143,6 +141,7 @@ export class Surface {
     this.color = color;
     this.glow = glow;
     this.noShadow = noShadow;
+    this.surfaceType = -1;
   }
 }
 
@@ -178,6 +177,97 @@ export class Scene {
   constructor ({ drawables, lights }) {
     this.drawables = drawables;
     this.lights = lights;
+    this.preallocDrawables();
+    this.preallocLights();
+  }
+
+  preallocDrawables () {
+    const { drawables } = this;
+
+    let numSurfaces = 0;
+
+    for (let d = 0; d < drawables.length; d++) {
+      numSurfaces += drawables[d].surfaces.length;
+    }
+
+    // Pad with zero-bytes so that floats line up
+    const padding = 4 - numSurfaces % 4;
+
+    /*
+    Triangles are represented by 9 floats
+    1x uint8 (1B) + 9x float32 (4B) = 37B
+    Additional 4B for meta followed by padding at start
+    */
+    const buffer = new SharedArrayBuffer(4 + padding + 37 * numSurfaces);
+
+    // Array of surfaceType
+    const types = new Int8Array(buffer, 4 + padding);
+
+    // The offset at which to start reading surfaces
+    const meta = new Uint32Array(buffer);
+    const offset = 4 + padding + numSurfaces;
+    meta[0] = offset;
+
+    let i = 0;
+
+    for (let d = 0; d < drawables.length; d++) {
+      const surfaces = drawables[d].surfaces;
+      for (let s = 0; s < surfaces.length; s++) {
+        const surface = surfaces[s];
+        types[i] = surface.surfaceType;
+        i++;
+      }
+    }
+
+    this.surfacesBuffer = buffer;
+    this.surfacesOffset = offset;
+  }
+
+  preallocLights () {
+    this.lightsBuffer = new SharedArrayBuffer(4 * 6 * this.lights.length);
+  }
+
+  serializeDrawables () {
+    const { drawables, surfacesBuffer: buffer, surfacesOffset: offset } = this;
+
+    const view = new Uint32Array(buffer);
+
+    // Array of actual surface data
+    const data = new Float32Array(buffer, offset);
+
+    let o = 0;
+
+    for (let d = 0; d < drawables.length; d++) {
+      const surfaces = drawables[d].surfaces;
+      for (let s = 0; s < surfaces.length; s++) {
+        const surface = surfaces[s];
+        surface.serialize(data, o);
+        o += 8;
+      }
+    }
+
+    return buffer;
+  }
+
+  serializeLights () {
+    const { lights, lightsBuffer: buffer } = this;
+
+    const data = new Float32Array(buffer);
+
+    for (let i = 0; i < lights.length; i++) {
+      const light = lights[i];
+      const offset = i * 6;
+
+      data[offset + 0] = light.relPos[0];
+      data[offset + 1] = light.relPos[1];
+      data[offset + 2] = light.relPos[2];
+
+      data[offset + 3] = light.color[0];
+      data[offset + 4] = light.color[1];
+      data[offset + 5] = light.color[2];
+    }
+
+    return buffer;
   }
 
   relative (pos, invmatrix) {
@@ -223,8 +313,8 @@ export class Camera {
     this.image = new ImageData(width, height);
 
     // shared image data
-    const sharedBuffer = new SharedArrayBuffer(4 * width * height);
-    this.sharedData = new Uint8ClampedArray(sharedBuffer);
+    this.sharedBuffer = new SharedArrayBuffer(4 * width * height);
+    this.sharedData = new Uint8ClampedArray(this.sharedBuffer);
   }
 
   setDirection (direction) {
@@ -261,21 +351,22 @@ export class Camera {
     }
 
     const { width, height } = this.ctx.canvas;
+    const buffer = this.sharedBuffer;
     const data = this.sharedData;
 
     // Distance from camera to screen
     const dis = 0.5 * width / Math.tan(this.fov / 2);
-    
-    // Get lights and surfaces
-    const drawablesSer = serializeDrawables(scene.drawables);
-    const lightsSer = serializeLights(scene.lights);
 
     scene.relative(this.pos, this.invmatrix());
+    
+    // Serialize lights and surfaces
+    const surfacesSer = scene.serializeDrawables();
+    const lightsSer = scene.serializeLights();
 
-    const origin = [0, 0, 0];
-
+    /*
     const [cursorX, cursorY] = this.cursorPos;
     const lock = document.pointerLockElement === this.ctx.canvas;
+    */
 
     // Divide into stripes
     const numStripes = this.renderers.length;
@@ -290,8 +381,8 @@ export class Camera {
         ? height // Yes: Render to y = height
         : stripeHeight * (i + 1); // No: Render to next stripe
 
-      const options = { startY, stopY, width, height, dis, drawablesSer, lightsSer };
-      worker.postMessage({ data, options });
+      const options = { startY, stopY, width, height, dis, surfacesSer, lightsSer };
+      worker.postMessage({ buffer, options });
     }
     
     this.image.data.set(data);

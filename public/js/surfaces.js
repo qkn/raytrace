@@ -7,6 +7,7 @@ const ONE_PLUS_EPSILON = 1 + Number.EPSILON;
 export class TriangleSurface extends Surface {
   constructor ({ color, vertices }) {
     super({ color });
+    this.surfaceType = 1;
     this.vertices = vertices;
     this.relVertices = vertices;
   }
@@ -24,7 +25,7 @@ export class TriangleSurface extends Surface {
   precompute () {
     const [A, B, C] = this.relVertices;
     
-    // Basis Vector3s
+    // Basis vectors
     this.vec1 = Vector3.sub(B, A);
     this.vec2 = Vector3.sub(C, A);
 
@@ -42,6 +43,7 @@ export class TriangleSurface extends Surface {
   }
 
   rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
+    // All values here can be computed from the 3 vertices
     const denom = Vector3.dot(this.normal, rayDirection);
 
     if (denom === 0) {
@@ -82,11 +84,20 @@ export class TriangleSurface extends Surface {
       && (u + v <= ONE_PLUS_EPSILON)
     );
   }
+
+  serialize (data, offset) {
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        data[offset + 3 * i + j] = this.relVertices[i][j];
+      }
+    }
+  }
 }
 
 export class SphereSurface extends Surface {
   constructor ({ color, pos, r, glow, noShadow }) {
     super({ color, glow, noShadow });
+    this.surfaceType = 2;
     this.pos = pos;
     this.relPos = pos;
     this.r = r;
@@ -136,11 +147,19 @@ export class SphereSurface extends Surface {
 
     this.relPos = Matrix.pmultiply(invmatrix, this.relPos);
   }
+
+  serialize (data, offset) {
+    for (let i = 0; i < 3; i++) {
+      data[offset + i] = this.relPos[i];
+    }
+    data[offset + 3] = this.r2;
+  }
 }
 
 export class CylinderSurface extends Surface {
   constructor ({ pos, color, r, height }) {
     super({ color });
+    this.surfaceType = 3;
     this.pos = pos;
     this.relPos = pos;
     this.r = r;
@@ -221,5 +240,14 @@ export class CylinderSurface extends Surface {
 
     this.relAxis = Vector3.sub(this.relEnd, this.relPos);
     Vector3.inormalize(this.relAxis);
+  }
+
+  serialize (data, offset) {
+    for (let i = 0; i < 3; i++) {
+      data[offset + i] = this.relPos[i];
+      data[offset + 3 + i] = this.relAxis[i];
+    }
+    data[offset + 6] = this.r2;
+    data[offset + 7] = this.height;
   }
 }
