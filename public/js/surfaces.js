@@ -87,8 +87,9 @@ export class TriangleSurface extends Surface {
 
   serialize (data, offset) {
     for (let i = 0; i < 3; i++) {
+      data[offset + i] = this.color[i];
       for (let j = 0; j < 3; j++) {
-        data[offset + 3 * i + j] = this.relVertices[i][j];
+        data[offset + 3 + 3 * i + j] = this.relVertices[i][j];
       }
     }
   }
@@ -150,9 +151,10 @@ export class SphereSurface extends Surface {
 
   serialize (data, offset) {
     for (let i = 0; i < 3; i++) {
-      data[offset + i] = this.relPos[i];
+      data[offset + i] = this.color[i];
+      data[offset + 3 + i] = this.relPos[i];
     }
-    data[offset + 3] = this.r2;
+    data[offset + 6] = this.r2;
   }
 }
 
@@ -244,10 +246,11 @@ export class CylinderSurface extends Surface {
 
   serialize (data, offset) {
     for (let i = 0; i < 3; i++) {
-      data[offset + i] = this.relPos[i];
-      data[offset + 3 + i] = this.relAxis[i];
+      data[offset + i] = this.color[i];
+      data[offset + 3 + i] = this.relPos[i];
+      data[offset + 6 + i] = this.relAxis[i];
     }
-    data[offset + 6] = this.r2;
-    data[offset + 7] = this.height;
+    data[offset + 9] = this.r2;
+    data[offset + 10] = this.height;
   }
 }

@@ -194,11 +194,11 @@ export class Scene {
     const padding = 4 - numSurfaces % 4;
 
     /*
-    Triangles are represented by 9 floats
-    1x uint8 (1B) + 9x float32 (4B) = 37B
+    Triangles are represented by 12 floats
+    1x uint8 (1B) + 12x float32 (4B) = 49B
     Additional 4B for meta followed by padding at start
     */
-    const buffer = new SharedArrayBuffer(4 + padding + 37 * numSurfaces);
+    const buffer = new SharedArrayBuffer(4 + padding + 49 * numSurfaces);
 
     // Array of surfaceType
     const types = new Int8Array(buffer, 4 + padding);
@@ -229,8 +229,6 @@ export class Scene {
 
   serializeDrawables () {
     const { drawables, surfacesBuffer: buffer, surfacesOffset: offset } = this;
-
-    const view = new Uint32Array(buffer);
 
     // Array of actual surface data
     const data = new Float32Array(buffer, offset);

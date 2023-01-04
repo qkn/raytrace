@@ -1,5 +1,5 @@
 
-importScripts("./rays.js", "./vec3.js", "./intersect.js");
+importScripts("./rays.js", "./vec3.js");
 
 // Will be reused on every render
 const direction = new Float32Array(3);
@@ -11,11 +11,13 @@ const origin = [0, 0, 0];
 function render (buffer, options) {
   const { startY, stopY, width, height, dis, surfacesSer, lightsSer } = options;
 
+  preRenderOpti(surfaces);
+
   // Image data
   const data = new Uint8ClampedArray(buffer);
 
   const surfacesMeta = new Uint32Array(surfacesSer);
-  const surfacesTypes = new Uint8Array(surfacesSer, 4);
+  const surfaceTypes = new Uint8Array(surfacesSer, 4);
   const surfaces = new Float32Array(surfacesSer, surfacesMeta[0]);
 
   const lights = new Float32Array(lightsSer);
@@ -40,8 +42,8 @@ function render (buffer, options) {
       Vector3.inormalize(direction);
 
       // Find the first surface the ray hits
-      const { surface, t, p, normal } = rayHitSurface(
-        origin, direction, surfaces);
+      const { surfaceIndex, surfaceType, t, p, normal } = rayHitSurface(
+        origin, direction, surfaces, surfaceTypes);
 
       // Set pixel to black by default
       for (let i = 0; i < 3; i++) {
@@ -49,7 +51,7 @@ function render (buffer, options) {
       }
       data[index + 3] = 0xff;
 
-      if (surface === null) {
+      if (surfaceIndex === null) {
         continue;
       }
 
@@ -64,7 +66,7 @@ function render (buffer, options) {
           continue;
         }
       }
-      */
+      
 
       if (surface.glow) {
         for (let i = 0; i < 3; i++) {
@@ -72,6 +74,7 @@ function render (buffer, options) {
         }
         continue;
       }
+      */
 
       for (let j = 0; j < lights.length; j += 6) {
 
@@ -84,7 +87,7 @@ function render (buffer, options) {
         const norm = Vector3.norm(incoming);
         Vector3.iscale(incoming, 1 / norm); // Normalize
 
-        if (!firstHitIs(relPos, incoming, surfaces, surface)) {
+        if (!firstHitIs(relPos, incoming, surfaces, surfaceTypes, surfaceIndex, surfaceType)) {
           // Light is obstructed
           continue;
         }
@@ -97,8 +100,10 @@ function render (buffer, options) {
 
         const b = -0xff * dot / norm**2; 
 
+        const o = FLOATS_PER_SURFACE * surfaceIndex;
+
         for (let i = 0; i < 3; i++) {
-          data[index + i] += surface.color[i] * b * color[i];
+          data[index + i] += surfaces[o + i] * b * color[i];
         }
       }
     }
