@@ -1,5 +1,5 @@
 
-const FLOATS_PER_SURFACE = 16;
+const FLOATS_PER_SURFACE = 26;
 
 export class Vector3 {
   // vec1 + vec2

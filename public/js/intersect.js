@@ -1,8 +1,14 @@
 
+const NEG_EPSILON = -Number.EPSILON;
+const ONE_PLUS_EPSILON = 1 + Number.EPSILON;
+
 // Maximum number of floats per surface
-const FLOATS_PER_SURFACE = 16;
+const FLOATS_PER_SURFACE = 26;
 
 const normal = new Float32Array(3);
+const vec1 = new Float32Array(3);
+const vec2 = new Float32Array(3);
+const vec3 = new Float32Array(3);
 
 class Triangle {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
@@ -36,7 +42,7 @@ class Triangle {
 
     const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t));
 
-    if (Triangle.containsPoint(p)) {
+    if (Triangle.containsPoint(surfaces, surfaceIndex, p)) {
       output.t = t;
       output.p = p;
       if (denom > 0) {
@@ -51,18 +57,28 @@ class Triangle {
     }
   }
 
-  static containsPoint (p) {
-    return true; // placeholder
+  static containsPoint (surfaces, surfaceIndex, p) {
+    const o = surfaceIndex * FLOATS_PER_SURFACE;
 
-    const vec3 = Vector3.sub(p, this.relVertices[0]);
+    for (let i = 0; i < 3; i++) {
+      normal[i] = surfaces[o + 12 + i];
+      vec1[i] = surfaces[o + 16 + i];
+      vec2[i] = surfaces[o + 19 + i];
+      vec3[i] = p[i] - surfaces[o + 3 + i];
+    }
+    // do declaring these consts affect memory or performance?
+    const dot11 = surfaces[o + 22];
+    const dot12 = surfaces[o + 23];
+    const dot22 = surfaces[o + 24];
+    const invDenom = surfaces[o + 25];
 
     // Compute dot products
-    const dot13 = Vector3.dot(this.vec1, vec3);
-    const dot23 = Vector3.dot(this.vec2, vec3);
+    const dot13 = Vector3.dot(vec1, vec3);
+    const dot23 = Vector3.dot(vec2, vec3);
 
     // Compute barycentric coordinates
-    const u = (this.dot22 * dot13 - this.dot12 * dot23) * this.invDenom;
-    const v = (this.dot11 * dot23 - this.dot12 * dot13) * this.invDenom;
+    const u = (dot22 * dot13 - dot12 * dot23) * invDenom;
+    const v = (dot11 * dot23 - dot12 * dot13) * invDenom;
 
     // Check if point is in triangle
     return (

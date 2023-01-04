@@ -86,14 +86,26 @@ export class TriangleSurface extends Surface {
   }
 
   serialize (data, offset) {
+    /*
+    Todo:
+    Vertices 1 and 2 are not even used when rendering
+    Do workers have any other use for these?
+    If not, we can save 6 floats by omitting these
+    */ 
     for (let i = 0; i < 3; i++) {
       data[offset + 0 + i] = this.color[i];
+      data[offset + 16 + i] = this.vec1[i];
+      data[offset + 19 + i] = this.vec2[i];
       for (let j = 0; j < 3; j++) {
         data[offset + 3 + 3 * i + j] = this.relVertices[i][j];
       }
       data[offset + 12 + i] = this.normal[i];
     }
     data[offset + 15] = this.dTri;
+    data[offset + 22] = this.dot11;
+    data[offset + 23] = this.dot12;
+    data[offset + 24] = this.dot22;
+    data[offset + 25] = this.invDenom;
   }
 }
 
