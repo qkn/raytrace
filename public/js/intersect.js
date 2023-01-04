@@ -9,6 +9,7 @@ const normal = new Float32Array(3);
 const vec1 = new Float32Array(3);
 const vec2 = new Float32Array(3);
 const vec3 = new Float32Array(3);
+const circRelPos = new Float32Array(3);
 
 class Triangle {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
@@ -91,7 +92,56 @@ class Triangle {
 
 class Sphere {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
+    const o = surfaceIndex * FLOATS_PER_SURFACE;
+    
+    for (let i = 0; i < 3; i++) {
+      circRelPos[i] = surfaces[o + 3 + i];
+    }
+    const r2 = surfaces[o + 6];
+    
+    // Make sphere center the new origin
+    const relOrigin = Vector3.sub(rayOrigin, circRelPos);
+
+    const bHalf = Vector3.dot(relOrigin, rayDirection);
+    const c = Vector3.norm(relOrigin) ** 2 - r2;
+
+    const discrim = bHalf**2 - c;
+
+    if (discrim < 0) {
+      output.t = null;
+      return;
+    }
+    
+    const root = Math.sqrt(discrim);
+
+    const t1 = -bHalf - root;
+
+    if (t1 > 0 && t1 < tMax) {
+      const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t1));
+      const normal = Vector3.sub(p, circRelPos);
+      Vector3.inormalize(normal);
+
+      output.t = t1;
+      output.p = p;
+      output.normal = normal;
+      return;
+    }
+
+    const t2 = -bHalf + root;
+
+    if (t2 > 0 && t2 < tMax) {
+      const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t2));
+      const normal = Vector3.sub(relPos, p);
+      Vector3.inormalize(normal);
+
+      output.t = t2;
+      output.p = p;
+      output.normal = normal;
+      return;
+    }
+
     output.t = null;
+    return;
   }
 }
 

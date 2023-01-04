@@ -113,9 +113,9 @@ const scene2 = new Scene({
     }),
     new Sphere({
       pos: [0, 5, 0],
-      r: 1,
+      r: 5,
       color: [1, 1, 0.8],
-      tick: Animation.circle({ r: 8, speed: 1 }),
+      tick: Animation.circle({ r: 35, speed: 1 }),
       glow: true,
       noShadow: true
     }),

@@ -45,7 +45,7 @@ function rayHitSurface (rayOrigin, rayDirection, surfaces, surfaceTypes, numSurf
 // Checks whether a surface is the first one hit by a ray
 function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, surfaceIndex, surfaceType, numSurfaces) {
   const rayIntersect = surfaceMap[surfaceType];
-
+  
   rayIntersect(output, surfaces, surfaceIndex, rayOrigin, rayDirection, Infinity, true);
 
   const t0 = output.t;
@@ -62,7 +62,7 @@ function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, surfaceInd
     const surfaceType = surfaceTypes[i];
     const rayIntersect = surfaceMap[surfaceType];
 
-    rayIntersect(output, surfaces, surfaceIndex, rayOrigin, rayDirection, t0, false);
+    rayIntersect(output, surfaces, i, rayOrigin, rayDirection, t0, false);
 
     if (output.t !== null) {
       return false;

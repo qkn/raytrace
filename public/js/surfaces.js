@@ -1,6 +1,12 @@
 
 import { Vector3, Matrix, Surface } from "./classes.js";
 
+/*
+Todo:
+* Remove redundancy from protocol
+* Include boolean attributes i.e. noShadow (bitmask?)
+*/
+
 const NEG_EPSILON = -Number.EPSILON;
 const ONE_PLUS_EPSILON = 1 + Number.EPSILON;
 
