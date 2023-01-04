@@ -1,36 +1,17 @@
 
-// 12 floats per surface
-const FLOATS_PER_SURFACE = 12;
+// Maximum number of floats per surface
+const FLOATS_PER_SURFACE = 16;
 
-const optiCache = {};
-
-function preRenderOpti (surfaces) {
-  for (let i = 0; i < surfaces.length; i++) {
-    optiCache[i] 
-  }
-}
+const normal = new Float32Array(3);
 
 class Triangle {
-  static calculateOpti (surfaces, surfaceIndex) {
+  static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
     const o = surfaceIndex * FLOATS_PER_SURFACE;
 
-    const entry = optiCache[surfaceIndex];
-    
-    if (surfaceIndex) {
-      entry[0] = 0;
+    for (let i = 0; i < 3; i++) {
+      normal[i] = surfaces[o + 12 + i];
     }
-
-    return opti;
-  }
-
-  static rayIntersect (surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly, output) {
-    const o = surfaceIndex * FLOATS_PER_SURFACE;
-
-    const opti = optiCache[surfaceIndex] ?? this.calculateOpti(surfaces, surfaceIndex);
-
-    const normal = opti[0];
-    const negNormal = opti[1];
-    const d = opti[2];
+    const dTri = surfaces[o + 15];
 
     // All values here can be computed from the 3 vertices
     const denom = Vector3.dot(normal, rayDirection);
@@ -41,19 +22,30 @@ class Triangle {
       return;
     }
 
-    const t = -(Vector3.dot(normal, rayOrigin) + d) / denom;
+    const t = -(Vector3.dot(normal, rayOrigin) + dTri) / denom;
 
     if (t < 0 || t >= tMax) {
       output.t = null;
       return;
     }
 
+    if (planeOnly) {
+      output.t = t;
+      return;
+    }
+
     const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t));
 
-    if (planeOnly || this.containsPoint(p)) {
+    if (Triangle.containsPoint(p)) {
       output.t = t;
       output.p = p;
-      output.normal = denom > 0 ? negNormal : normal;
+      if (denom > 0) {
+        // Reverse normal
+        for (let i = 0; i < 3; i++) {
+          normal[i] = -normal[i];
+        }
+      }
+      output.normal = normal;
     } else {
       output.t = null;
     }
@@ -82,13 +74,13 @@ class Triangle {
 }
 
 class Sphere {
-  static rayIntersect (surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, output) {
+  static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
     output.t = null;
   }
 }
 
 class Cylinder {
-  static rayIntersect (surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, output) {
+  static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
     output.t = null;
   }
 }

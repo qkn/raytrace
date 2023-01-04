@@ -2,15 +2,10 @@
 importScripts("./intersect.js");
 
 const result = {
-  surface: null,
-  t: Infinity,
-  p: null,
-  normal: null
+  normal: new Float32Array(3)
 };
 
-const output = {
-
-};
+const output = {};
 
 const surfaceMap = {
   1: Triangle.rayIntersect,
@@ -19,25 +14,28 @@ const surfaceMap = {
 };
 
 // Find the first surface that ray intersects
-function rayHitSurface (rayOrigin, rayDirection, surfaces, surfaceTypes) {
+function rayHitSurface (rayOrigin, rayDirection, surfaces, surfaceTypes, numSurfaces) {
   result.surfaceIndex = null;
   result.surfaceType = null;
   result.t = Infinity;
   result.p = null;
-  result.normal = null;
 
-  for (let i = 0, s = 0; i < surfaceTypes.length; i++, s += FLOATS_PER_SURFACE) {
+  for (let i = 0, s = 0; i < numSurfaces; i++, s += FLOATS_PER_SURFACE) {
     const surfaceType = surfaceTypes[i];
     const rayIntersect = surfaceMap[surfaceType];
 
-    rayIntersect(surfaces, i, rayOrigin, rayDirection, result.t, false, output);
+    rayIntersect(output, surfaces, i, rayOrigin, rayDirection, result.t, false);
 
     if (output.t !== null) {
       result.surfaceIndex = i;
       result.surfaceType = surfaceType;
       result.t = output.t;
       result.p = output.p;
-      result.normal = output.normal;
+
+      // copy normal
+      result.normal[0] = output.normal[0];
+      result.normal[1] = output.normal[1];
+      result.normal[2] = output.normal[2];
     }
   }
 
@@ -45,10 +43,10 @@ function rayHitSurface (rayOrigin, rayDirection, surfaces, surfaceTypes) {
 }
 
 // Checks whether a surface is the first one hit by a ray
-function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, surfaceIndex, surfaceType) {
+function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, surfaceIndex, surfaceType, numSurfaces) {
   const rayIntersect = surfaceMap[surfaceType];
 
-  rayIntersect(surfaces, surfaceIndex, rayOrigin, rayDirection, Infinity, true, output);
+  rayIntersect(output, surfaces, surfaceIndex, rayOrigin, rayDirection, Infinity, true);
 
   const t0 = output.t;
 
@@ -56,7 +54,7 @@ function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, surfaceInd
     return false;
   }
 
-  for (let i = 0, s = 0; i < surfaceTypes.length; i++, s += FLOATS_PER_SURFACE) {
+  for (let i = 0, s = 0; i < numSurfaces; i++, s += FLOATS_PER_SURFACE) {
     if (i === surfaceIndex) {
       continue;
     }
@@ -64,7 +62,7 @@ function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, surfaceInd
     const surfaceType = surfaceTypes[i];
     const rayIntersect = surfaceMap[surfaceType];
 
-    rayIntersect(surfaces, surfaceIndex, rayOrigin, rayDirection, t0, false, output);
+    rayIntersect(output, surfaces, surfaceIndex, rayOrigin, rayDirection, t0, false);
 
     if (output.t !== null) {
       return false;

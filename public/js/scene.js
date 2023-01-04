@@ -143,5 +143,33 @@ const scene2 = new Scene({
   ]
 });
 
+const scene3 = new Scene({
+  drawables: [
+    new Drawable({
+      pos: [0, 0, 0],
+      surfaces: [
+        new TriangleSurface({
+          color: [1, 0, 0],
+          vertices: [
+            [-10, 10, 20],
+            [10, 10, 20],
+            [-10, -10, 20]
+          ]
+        })
+      ]
+    })
+  ],
+  lights: [
+    new LightSource({
+      pos: [-5, 0, -10],
+      color: [400, 400, 400]
+    }),
+    new LightSource({
+      pos: [5, 0, 30],
+      color: [400, 400, 400]
+    })
+  ],
+});
+
 // todo: add scene selection
 export const scene = scene2;

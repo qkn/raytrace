@@ -32,8 +32,8 @@ export class TriangleSurface extends Surface {
     // Plane
     this.normal = Vector3.normalize(Vector3.cross(this.vec1, this.vec2));
     this.negNormal = Vector3.scale(this.normal, -1);
-    this.d = -Vector3.dot(this.normal, A);
-    this.plane = [...this.normal, this.d];
+    this.dTri = -Vector3.dot(this.normal, A);
+    this.plane = [...this.normal, this.dTri];
 
     // Dot products for point in triangle check
     this.dot11 = Vector3.dot(this.vec1, this.vec1);
@@ -51,7 +51,7 @@ export class TriangleSurface extends Surface {
       return null;
     }
 
-    const t = -(Vector3.dot(this.normal, rayOrigin) + this.d) / denom;
+    const t = -(Vector3.dot(this.normal, rayOrigin) + this.dTri) / denom;
 
     if (t < 0 || t >= tMax) {
       return null;
@@ -87,11 +87,13 @@ export class TriangleSurface extends Surface {
 
   serialize (data, offset) {
     for (let i = 0; i < 3; i++) {
-      data[offset + i] = this.color[i];
+      data[offset + 0 + i] = this.color[i];
       for (let j = 0; j < 3; j++) {
         data[offset + 3 + 3 * i + j] = this.relVertices[i][j];
       }
+      data[offset + 12 + i] = this.normal[i];
     }
+    data[offset + 15] = this.dTri;
   }
 }
 
@@ -151,7 +153,7 @@ export class SphereSurface extends Surface {
 
   serialize (data, offset) {
     for (let i = 0; i < 3; i++) {
-      data[offset + i] = this.color[i];
+      data[offset + 0 + i] = this.color[i];
       data[offset + 3 + i] = this.relPos[i];
     }
     data[offset + 6] = this.r2;
@@ -246,7 +248,7 @@ export class CylinderSurface extends Surface {
 
   serialize (data, offset) {
     for (let i = 0; i < 3; i++) {
-      data[offset + i] = this.color[i];
+      data[offset + 0 + i] = this.color[i];
       data[offset + 3 + i] = this.relPos[i];
       data[offset + 6 + i] = this.relAxis[i];
     }

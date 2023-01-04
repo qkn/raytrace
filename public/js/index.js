@@ -12,7 +12,7 @@ const camera = new Camera({
   direction: [0, 0, 1]
 });
 
-console.log(camera);
+window.parent.camera = camera;
 
 // Camera movement
 const inputs = new Set();
@@ -72,7 +72,7 @@ addEventListener("load", () => {
     fovCounter.innerText = value;
   });
   
-  resInput.addEventListener("input", (ev) => {
+  resInput.addEventListener("change", (ev) => {
     const { value } = ev.target;
     canvas.width = value;
     canvas.height = value;

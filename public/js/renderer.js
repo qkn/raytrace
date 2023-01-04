@@ -11,21 +11,24 @@ const origin = [0, 0, 0];
 function render (buffer, options) {
   const { startY, stopY, width, height, dis, surfacesSer, lightsSer } = options;
 
-  preRenderOpti(surfaces);
-
   // Image data
   const data = new Uint8ClampedArray(buffer);
 
+  // Where to start reading surface data
   const surfacesMeta = new Uint32Array(surfacesSer);
-  const surfaceTypes = new Uint8Array(surfacesSer, 4);
-  const surfaces = new Float32Array(surfacesSer, surfacesMeta[0]);
+  const numSurfaces = surfacesMeta[0];
+  const padding = 4 - numSurfaces % 4;
+  const offset = 4 + padding + numSurfaces;
+  
+  const surfaceTypes = new Uint8Array(surfacesSer, 4 + padding);
+  const surfaces = new Float32Array(surfacesSer, offset);
 
   const lights = new Float32Array(lightsSer);
 
   const halfWidth = width / 2;
   const halfHeight = height / 2;
 
-  let index = 4 * startY - 4;
+  let index = 4 * startY * width - 4;
 
   for (let screenY = startY; screenY < stopY; screenY++) {
     for (let screenX = 0; screenX < width; screenX++) {
@@ -43,7 +46,7 @@ function render (buffer, options) {
 
       // Find the first surface the ray hits
       const { surfaceIndex, surfaceType, t, p, normal } = rayHitSurface(
-        origin, direction, surfaces, surfaceTypes);
+        origin, direction, surfaces, surfaceTypes, numSurfaces);
 
       // Set pixel to black by default
       for (let i = 0; i < 3; i++) {
@@ -81,13 +84,16 @@ function render (buffer, options) {
         for (let i = 0; i < 3; i++) {
           relPos[i] = lights[j + i];
           color[i] = lights[j + 3 + i];
-          incoming[i] = p[i] - color[i];
+          incoming[i] = p[i] - relPos[i];
         }
 
         const norm = Vector3.norm(incoming);
         Vector3.iscale(incoming, 1 / norm); // Normalize
 
-        if (!firstHitIs(relPos, incoming, surfaces, surfaceTypes, surfaceIndex, surfaceType)) {
+        if (
+          !firstHitIs(relPos, incoming, surfaces, surfaceTypes,
+            surfaceIndex, surfaceType, numSurfaces)
+        ) {
           // Light is obstructed
           continue;
         }
@@ -111,7 +117,15 @@ function render (buffer, options) {
 }
 
 onmessage = (e) => {
-  const { buffer, options } = e.data;
+  const { buffer, options, frameId, frameIdBuffer } = e.data;
+
+  const frameIdData = new Uint32Array(frameIdBuffer);
+  const currentFrameId = frameIdData[0];
+
+  if (frameId < currentFrameId) {
+    // frame is already old, do not render it
+    return;
+  }
 
   render(buffer, options);
 };

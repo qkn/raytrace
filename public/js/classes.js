@@ -1,4 +1,6 @@
 
+const FLOATS_PER_SURFACE = 16;
+
 export class Vector3 {
   // vec1 + vec2
   static add (vec1, vec2) {
@@ -194,19 +196,20 @@ export class Scene {
     const padding = 4 - numSurfaces % 4;
 
     /*
-    Triangles are represented by 12 floats
-    1x uint8 (1B) + 12x float32 (4B) = 49B
+    Triangles are represented by FLOATS_PER_SURFACE floats
+    1x uint8 (1B) + (FLOATS_PER_SURFACE)x float32 (4B)
     Additional 4B for meta followed by padding at start
     */
-    const buffer = new SharedArrayBuffer(4 + padding + 49 * numSurfaces);
+    const bytesPerSurface = 1 + 4 * FLOATS_PER_SURFACE;
+    const buffer = new SharedArrayBuffer(4 + padding + bytesPerSurface * numSurfaces);
 
     // Array of surfaceType
     const types = new Int8Array(buffer, 4 + padding);
 
-    // The offset at which to start reading surfaces
+    // The number of surfaces
     const meta = new Uint32Array(buffer);
     const offset = 4 + padding + numSurfaces;
-    meta[0] = offset;
+    meta[0] = numSurfaces;
 
     let i = 0;
 
@@ -240,7 +243,7 @@ export class Scene {
       for (let s = 0; s < surfaces.length; s++) {
         const surface = surfaces[s];
         surface.serialize(data, o);
-        o += 8;
+        o += FLOATS_PER_SURFACE;
       }
     }
 
@@ -298,11 +301,17 @@ export class Camera {
 
     this.rebind = false;
 
+    // create worker threads for rendering
     this.renderers = [];
-    for (let i = 0; i < navigator.hardwareConcurrency; i++) {
+    this.numRenderers = navigator.hardwareConcurrency;
+    for (let i = 0; i < this.numRenderers; i++) {
       const worker = new Worker("./js/renderer.js");
       this.renderers.push(worker);
     }
+
+    this.frameId = 0;
+    this.frameIdBuffer = new SharedArrayBuffer(4);
+    this.frameIdData = new Uint32Array(this.frameIdBuffer);
   }
 
   bind (ctx) {
@@ -348,6 +357,9 @@ export class Camera {
       this.rebind = false;
     }
 
+    this.frameId++;
+    this.frameIdData[0] = this.frameId;
+
     const { width, height } = this.ctx.canvas;
     const buffer = this.sharedBuffer;
     const data = this.sharedData;
@@ -380,9 +392,13 @@ export class Camera {
         : stripeHeight * (i + 1); // No: Render to next stripe
 
       const options = { startY, stopY, width, height, dis, surfacesSer, lightsSer };
-      worker.postMessage({ buffer, options });
+
+      worker.postMessage({
+        buffer, options, frameId: this.frameId,
+        frameIdBuffer: this.frameIdBuffer
+      });
     }
-    
+
     this.image.data.set(data);
     this.ctx.putImageData(this.image, 0, 0);
   }
