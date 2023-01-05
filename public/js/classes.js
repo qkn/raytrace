@@ -390,19 +390,16 @@ export class Camera {
     */
 
     // Divide into stripes
-    const numStripes = this.renderers.length;
-    const stripeHeight = Math.floor(height / numStripes);
+    const numStripes = this.numRenderers;
 
     // Send to workers
     for (let i = 0; i < numStripes; i++) {
       const worker = this.renderers[i];
 
-      const startY = stripeHeight * i;
-      const stopY = i + 1 === numStripes // Last stripe?
-        ? height // Yes: Render to y = height
-        : stripeHeight * (i + 1); // No: Render to next stripe
-
-      const options = { startY, stopY, width, height, dis, surfacesSer, lightsSer };
+      const options = {
+        yOffset: i, yJump: numStripes - 1, width, height,
+        dis, surfacesSer, lightsSer
+      };
 
       worker.postMessage({
         buffer, options, frameId: this.frameId,

@@ -9,7 +9,7 @@ const color = new Float32Array(3);
 const origin = [0, 0, 0];
 
 function render (buffer, options) {
-  const { startY, stopY, width, height, dis, surfacesSer, lightsSer } = options;
+  const { yOffset, yJump, width, height, dis, surfacesSer, lightsSer } = options;
 
   // Image data
   const data = new Uint8ClampedArray(buffer);
@@ -28,9 +28,10 @@ function render (buffer, options) {
   const halfWidth = width / 2;
   const halfHeight = height / 2;
 
-  let index = 4 * startY * width - 4;
+  let index = 4 * yOffset * width - 4;
+  const jump = 4 * yJump * width;
 
-  for (let screenY = startY; screenY < stopY; screenY++) {
+  for (let screenY = yOffset; screenY < height; screenY += yJump) {
     for (let screenX = 0; screenX < width; screenX++) {
       const x = screenX - halfWidth;
       const y = halfHeight - screenY;
@@ -113,6 +114,8 @@ function render (buffer, options) {
         }
       }
     }
+
+    index += jump;
   }
 }
 

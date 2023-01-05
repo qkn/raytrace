@@ -121,7 +121,7 @@ const scene2 = new Scene({
     }),
     new Cylinder({
       pos: [-10, -10, -10],
-      axis: [0, 10, 0],
+      axis: [5, 10, 5],
       r: 3,
       color: [0.7, 0.9, 0.7]
     }),
