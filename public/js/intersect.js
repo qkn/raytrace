@@ -1,18 +1,17 @@
 
+import { FLOATS_PER_SURFACE, Vector3 } from "./classes.js";
+
 const NEG_EPSILON = -Number.EPSILON;
 const ONE_PLUS_EPSILON = 1 + Number.EPSILON;
-
-// Maximum number of floats per surface
-const FLOATS_PER_SURFACE = 26;
 
 const normal = new Float32Array(3);
 const vec1 = new Float32Array(3);
 const vec2 = new Float32Array(3);
 const vec3 = new Float32Array(3);
-const circRelPos = new Float32Array(3);
+const relPos = new Float32Array(3);
 const relAxis = new Float32Array(3);
 
-class Triangle {
+export class Triangle {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
     const o = surfaceIndex * FLOATS_PER_SURFACE;
 
@@ -92,17 +91,17 @@ class Triangle {
   }
 }
 
-class Sphere {
+export class Sphere {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
     const o = surfaceIndex * FLOATS_PER_SURFACE;
     
     for (let i = 0; i < 3; i++) {
-      circRelPos[i] = surfaces[o + 3 + i];
+      relPos[i] = surfaces[o + 3 + i];
     }
     const r2 = surfaces[o + 6];
     
     // Make sphere center the new origin
-    const relOrigin = Vector3.sub(rayOrigin, circRelPos);
+    const relOrigin = Vector3.sub(rayOrigin, relPos);
 
     const bHalf = Vector3.dot(relOrigin, rayDirection);
     const c = Vector3.norm(relOrigin) ** 2 - r2;
@@ -120,7 +119,7 @@ class Sphere {
 
     if (t1 > 0 && t1 < tMax) {
       const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t1));
-      const normal = Vector3.sub(p, circRelPos);
+      const normal = Vector3.sub(p, relPos);
       Vector3.inormalize(normal);
 
       output.t = t1;
@@ -133,7 +132,7 @@ class Sphere {
 
     if (t2 > 0 && t2 < tMax) {
       const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t2));
-      const normal = Vector3.sub(circRelPos, p);
+      const normal = Vector3.sub(relPos, p);
       Vector3.inormalize(normal);
 
       output.t = t2;
@@ -146,19 +145,19 @@ class Sphere {
   }
 }
 
-class Cylinder {
+export class Cylinder {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
     const o = surfaceIndex * FLOATS_PER_SURFACE;
     
     for (let i = 0; i < 3; i++) {
-      circRelPos[i] = surfaces[o + 3 + i];
+      relPos[i] = surfaces[o + 3 + i];
       relAxis[i] = surfaces[o + 6 + i];
     }
     const r2 = surfaces[o + 9];
     const height = surfaces[o + 10];
     
     // Make sphere center the new origin
-    const relOrigin = Vector3.sub(rayOrigin, circRelPos);
+    const relOrigin = Vector3.sub(rayOrigin, relPos);
 
     const x0 = relOrigin[0];
     const y0 = relOrigin[1];
@@ -188,11 +187,11 @@ class Cylinder {
 
     if (t1 > 0 && t1 < tMax) {
       const p1 = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t1));
-      const c1 = Vector3.sub(p1, circRelPos);
+      const c1 = Vector3.sub(p1, relPos);
       const d1 = Vector3.dot(relAxis, c1);
 
       if (d1 > 0 && d1 < height) {
-        const offset = Vector3.add(circRelPos, Vector3.scale(relAxis, d1));
+        const offset = Vector3.add(relPos, Vector3.scale(relAxis, d1));
         const normal = Vector3.sub(p1, offset);
         Vector3.inormalize(normal);
 
@@ -207,11 +206,11 @@ class Cylinder {
 
     if (t2 > 0 && t2 < tMax) {
       const p2 = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t2));
-      const c2 = Vector3.sub(p2, circRelPos);
+      const c2 = Vector3.sub(p2, relPos);
       const d2 = Vector3.dot(relAxis, c2);
 
       if (d2 > 0 && d2 < height) {
-        const offset = Vector3.add(circRelPos, Vector3.scale(relAxis, d2));
+        const offset = Vector3.add(relPos, Vector3.scale(relAxis, d2));
         const normal = Vector3.sub(offset, p2);
         Vector3.inormalize(normal);
 

@@ -1,5 +1,6 @@
 
-importScripts("./rays.js", "./vec3.js");
+import { Vector3, FLOATS_PER_SURFACE } from "./classes.js";
+import { rayHitSurface, firstHitIs } from "./rays.js";
 
 // Will be reused on every render
 const direction = new Float32Array(3);

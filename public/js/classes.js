@@ -1,5 +1,5 @@
 
-const FLOATS_PER_SURFACE = 26;
+export const FLOATS_PER_SURFACE = 26;
 
 export class Vector3 {
   // vec1 + vec2
@@ -316,7 +316,7 @@ export class Camera {
     this.renderers = [];
     this.numRenderers = navigator.hardwareConcurrency;
     for (let i = 0; i < this.numRenderers; i++) {
-      const worker = new Worker("./js/renderer.js");
+      const worker = new Worker("./js/renderer.js", { type: "module" });
       this.renderers.push(worker);
 
       worker.onmessage = (e) => {

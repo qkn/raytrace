@@ -1,5 +1,6 @@
 
-importScripts("./intersect.js");
+import { FLOATS_PER_SURFACE } from "./classes.js";
+import { Triangle, Sphere, Cylinder } from "./intersect.js";
 
 const hit = {
   normal: new Float32Array(3),
@@ -13,7 +14,7 @@ const surfaceMap = {
 };
 
 // Find the first surface that ray intersects
-function rayHitSurface (output, rayOrigin, rayDirection, surfaces, surfaceTypes, numSurfaces) {
+export function rayHitSurface (output, rayOrigin, rayDirection, surfaces, surfaceTypes, numSurfaces) {
   output.surfaceIndex = null;
   output.surfaceType = null;
   output.t = Infinity;
@@ -40,7 +41,7 @@ function rayHitSurface (output, rayOrigin, rayDirection, surfaces, surfaceTypes,
 }
 
 // Checks whether a surface is the first one hit by a ray
-function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, t0, numSurfaces) {
+export function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, t0, numSurfaces) {
   // t0 is simply the distance between the point and the light source
 
   for (let i = 0, s = 0; i < numSurfaces; i++, s += FLOATS_PER_SURFACE) {
