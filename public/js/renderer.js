@@ -136,4 +136,6 @@ onmessage = (e) => {
   }
 
   render(buffer, options);
+
+  postMessage({ event: "frameDone", frameId });
 };

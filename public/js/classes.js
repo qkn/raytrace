@@ -318,11 +318,30 @@ export class Camera {
     for (let i = 0; i < this.numRenderers; i++) {
       const worker = new Worker("./js/renderer.js");
       this.renderers.push(worker);
+
+      worker.onmessage = (e) => {
+        if (!this.vsync) {
+          return;
+        }
+
+        this.frameProgress++;
+
+        if (this.frameProgress !== this.numRenderers) {
+          return;
+        }
+
+        // Frame is done
+        this.image.data.set(this.sharedData);
+        this.ctx.putImageData(this.image, 0, 0);
+        this.resolveRender();
+      }
     }
 
     this.frameId = 0;
     this.frameIdBuffer = new SharedArrayBuffer(4);
     this.frameIdData = new Uint32Array(this.frameIdBuffer);
+
+    this.vsync = true;
   }
 
   bind (ctx) {
@@ -370,6 +389,7 @@ export class Camera {
 
     this.frameId++;
     this.frameIdData[0] = this.frameId;
+    this.frameProgress = 0;
 
     const { width, height } = this.ctx.canvas;
     const buffer = this.sharedBuffer;
@@ -407,8 +427,15 @@ export class Camera {
       });
     }
 
-    this.image.data.set(data);
-    this.ctx.putImageData(this.image, 0, 0);
+    return new Promise((resolve) => {
+      this.resolveRender = resolve;
+
+      if (!this.vsync) {
+        this.image.data.set(data);
+        this.ctx.putImageData(this.image, 0, 0);
+        resolve();
+      }
+    });
   }
 }
 

@@ -129,7 +129,7 @@ addEventListener("load", () => {
     );
   });
 
-  function animate (t) {
+  async function animate (t) {
     const dt = realtime ? Math.min(t - t0, 100) : timestep;
     t0 = t;
     t2 += dt;
@@ -167,7 +167,7 @@ addEventListener("load", () => {
 
     scene.tick(realtime ? t : t2);
 
-    camera.render(scene);
+    await camera.render(scene);
 
     requestAnimationFrame(animate);
   }
