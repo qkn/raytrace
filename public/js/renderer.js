@@ -7,6 +7,9 @@ const incoming = new Float32Array(3);
 const relPos = new Float32Array(3);
 const color = new Float32Array(3);
 const origin = [0, 0, 0];
+const rayHitOutput = {
+  normal: new Float32Array(3)
+};
 
 function render (buffer, options) {
   const { yOffset, yJump, width, height, dis, surfacesSer, lightsSer } = options;
@@ -46,8 +49,10 @@ function render (buffer, options) {
       Vector3.inormalize(direction);
 
       // Find the first surface the ray hits
-      const { surfaceIndex, surfaceType, t, p, normal } = rayHitSurface(
-        origin, direction, surfaces, surfaceTypes, numSurfaces);
+      rayHitSurface(rayHitOutput, origin, direction,
+        surfaces, surfaceTypes, numSurfaces);
+
+      const { surfaceIndex, p, normal } = rayHitOutput;
 
       // Set pixel to black by default
       for (let i = 0; i < 3; i++) {
