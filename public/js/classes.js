@@ -281,6 +281,17 @@ export class Scene {
   }
 
   tick (t) {
+    /*
+    Idea:
+    Introduce a tickPosDelta or similar
+
+    1. Set to 0 vector at start of tick
+    2. obj.tick()
+    3. Each animation can iadd the delta
+    4. obj.pos = obj.origPos + tickPosDelta
+
+    This should allow for combining animations?
+    */
     for (const light of this.lights) {
       light.tick(t);
     }

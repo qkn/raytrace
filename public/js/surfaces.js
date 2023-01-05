@@ -179,20 +179,21 @@ export class SphereSurface extends Surface {
 }
 
 export class CylinderSurface extends Surface {
-  constructor ({ pos, color, r, height }) {
+  constructor ({ pos, axis, color, r }) {
     super({ color });
     this.surfaceType = 3;
     this.pos = pos;
     this.relPos = pos;
+    this.end = Vector3.add(pos, axis);
+    this.relEnd = this.end;
     this.r = r;
     this.r2 = r ** 2;
-    this.height = height;
-    this.end = Vector3.add(pos, [0, height, 0]);
-    this.relEnd = this.end;
+    this.height = Vector3.norm(axis);
+    this.axis = axis;
   }
 
   rayIntersect (rayOrigin, rayDirection, tMax, planeOnly) {
-    // Make sphere center the new origin
+    // Make cylinder center the new origin
     const relOrigin = Vector3.sub(rayOrigin, this.relPos);
 
     const x0 = relOrigin[0];

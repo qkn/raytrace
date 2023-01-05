@@ -36,9 +36,9 @@ const scene1 = new Scene({
     }),
     new Cylinder({
       pos: [20, -10, -10],
+      axis: [0, 10, 0],
       color: [0, 0.5, 0.5],
       r: 5,
-      height: 10,
       transform: [
         [1, 0, 0],
         [0, 5, 0],
@@ -112,8 +112,8 @@ const scene2 = new Scene({
       color: [1, 0, 1]
     }),
     new Sphere({
-      pos: [0, 5, 0],
-      r: 5,
+      pos: [0, 9, 0],
+      r: 6,
       color: [1, 1, 0.8],
       tick: Animation.circle({ r: 35, speed: 1 }),
       glow: true,
@@ -121,9 +121,37 @@ const scene2 = new Scene({
     }),
     new Cylinder({
       pos: [-10, -10, -10],
+      axis: [0, 10, 0],
       r: 3,
-      height: 5,
       color: [0.7, 0.9, 0.7]
+    }),
+    new Cylinder({
+      pos: [-25, -10, -15],
+      axis: [0, 30, 0],
+      r: 3,
+      color: [0, 1, 0]
+    }),
+    new Cylinder({
+      pos: [25, -10, -15],
+      axis: [0, 30, 0],
+      r: 3,
+      color: [0, 1, 0]
+    }),
+    new Cylinder({
+      pos: [-25, 20, -15],
+      axis: [50, 0, 0],
+      r: 3,
+      color: [0, 1, 0]
+    }),
+    new Sphere({
+      pos: [-25, 20, -15],
+      r: 3,
+      color: [0, 1, 0]
+    }),
+    new Sphere({
+      pos: [25, 20, -15],
+      r: 3,
+      color: [0, 1, 0]
     })
   ],
   lights: [
@@ -139,7 +167,7 @@ const scene2 = new Scene({
     new LightSource({
       pos: [-60, 20, -60],
       color: [1000, 1000, 1000],
-    })
+    }),
   ]
 });
 

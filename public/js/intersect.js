@@ -10,6 +10,7 @@ const vec1 = new Float32Array(3);
 const vec2 = new Float32Array(3);
 const vec3 = new Float32Array(3);
 const circRelPos = new Float32Array(3);
+const relAxis = new Float32Array(3);
 
 class Triangle {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
@@ -53,9 +54,10 @@ class Triangle {
         }
       }
       output.normal = normal;
-    } else {
-      output.t = null;
+      return;
     }
+    
+    output.t = null;
   }
 
   static containsPoint (surfaces, surfaceIndex, p) {
@@ -131,7 +133,7 @@ class Sphere {
 
     if (t2 > 0 && t2 < tMax) {
       const p = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t2));
-      const normal = Vector3.sub(relPos, p);
+      const normal = Vector3.sub(circRelPos, p);
       Vector3.inormalize(normal);
 
       output.t = t2;
@@ -141,12 +143,85 @@ class Sphere {
     }
 
     output.t = null;
-    return;
   }
 }
 
 class Cylinder {
   static rayIntersect (output, surfaces, surfaceIndex, rayOrigin, rayDirection, tMax, planeOnly) {
+    const o = surfaceIndex * FLOATS_PER_SURFACE;
+    
+    for (let i = 0; i < 3; i++) {
+      circRelPos[i] = surfaces[o + 3 + i];
+      relAxis[i] = surfaces[o + 6 + i];
+    }
+    const r2 = surfaces[o + 9];
+    const height = surfaces[o + 10];
+    
+    // Make sphere center the new origin
+    const relOrigin = Vector3.sub(rayOrigin, circRelPos);
+
+    const x0 = relOrigin[0];
+    const y0 = relOrigin[1];
+    const z0 = relOrigin[2];
+
+    const xd = rayDirection[0];
+    const yd = rayDirection[1];
+    const zd = rayDirection[2];
+
+    const dot1 = Vector3.dot(relAxis, rayDirection);
+    const dot2 = Vector3.dot(relAxis, relOrigin);
+
+    const a = xd ** 2 + yd ** 2 + zd ** 2 - dot1 ** 2;
+    const bHalf = x0 * xd + y0 * yd + z0 * zd - dot2 * dot1;
+    const c = x0 ** 2 + y0 ** 2 + z0 ** 2 - dot2 ** 2 - r2;
+
+    const discrim = bHalf**2 - a * c;
+
+    if (discrim < 0) {
+      output.t = null;
+      return;
+    }
+
+    const root = Math.sqrt(discrim);
+
+    const t1 = (-bHalf - root) / a;
+
+    if (t1 > 0 && t1 < tMax) {
+      const p1 = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t1));
+      const c1 = Vector3.sub(p1, circRelPos);
+      const d1 = Vector3.dot(relAxis, c1);
+
+      if (d1 > 0 && d1 < height) {
+        const offset = Vector3.add(circRelPos, Vector3.scale(relAxis, d1));
+        const normal = Vector3.sub(p1, offset);
+        Vector3.inormalize(normal);
+
+        output.t = t1;
+        output.p = p1;
+        output.normal = normal;
+        return;
+      }
+    }
+
+    const t2 = (-bHalf + root) / a;
+
+    if (t2 > 0 && t2 < tMax) {
+      const p2 = Vector3.add(rayOrigin, Vector3.scale(rayDirection, t2));
+      const c2 = Vector3.sub(p2, circRelPos);
+      const d2 = Vector3.dot(relAxis, c2);
+
+      if (d2 > 0 && d2 < height) {
+        const offset = Vector3.add(circRelPos, Vector3.scale(relAxis, d2));
+        const normal = Vector3.sub(offset, p2);
+        Vector3.inormalize(normal);
+
+        output.t = t2;
+        output.p = p2;
+        output.normal = normal;
+        return;
+      }
+    }
+
     output.t = null;
   }
 }

@@ -90,17 +90,17 @@ function render (buffer, options) {
         const norm = Vector3.norm(incoming);
         Vector3.iscale(incoming, 1 / norm); // Normalize
 
-        if (
-          !firstHitIs(relPos, incoming, surfaces, surfaceTypes,
-            surfaceIndex, surfaceType, numSurfaces)
-        ) {
-          // Light is obstructed
-          continue;
-        }
-
         const dot = Vector3.dot(normal, incoming);
 
         if (dot > 0) {
+          continue;
+        }
+
+        if (
+          !firstHitIs(relPos, incoming, surfaces,
+            surfaceTypes, norm - 0.1, numSurfaces)
+        ) {
+          // Light is obstructed
           continue;
         }
 

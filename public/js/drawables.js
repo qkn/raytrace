@@ -1,5 +1,5 @@
 
-import { Drawable } from "./classes.js";
+import { Drawable, Vector3 } from "./classes.js";
 import { TriangleSurface, SphereSurface, CylinderSurface } from "./surfaces.js";
 
 export class Sphere extends Drawable {
@@ -24,7 +24,7 @@ export class Sphere extends Drawable {
 }
 
 export class Cylinder extends Drawable {
-  constructor({ pos, color, r, height, tick, transform }) {
+  constructor({ pos, axis, color, r, tick, transform }) {
     super({
       pos,
       tick,
@@ -32,15 +32,13 @@ export class Cylinder extends Drawable {
       surfaces: [
         new CylinderSurface({
           pos: [0, 0, 0],
+          axis,
           color,
           r,
-          height
         })
       ]
     });
-    this.r = r;
     this.color = color;
-    this.height = height;
   }
 }
 

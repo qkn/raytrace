@@ -43,21 +43,14 @@ function rayHitSurface (rayOrigin, rayDirection, surfaces, surfaceTypes, numSurf
 }
 
 // Checks whether a surface is the first one hit by a ray
-function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, surfaceIndex, surfaceType, numSurfaces) {
-  const rayIntersect = surfaceMap[surfaceType];
-  
-  rayIntersect(output, surfaces, surfaceIndex, rayOrigin, rayDirection, Infinity, true);
-
-  const t0 = output.t;
-
-  if (t0 === null) {
-    return false;
-  }
+function firstHitIs (rayOrigin, rayDirection, surfaces, surfaceTypes, t0, numSurfaces) {
+  // t0 is simply the distance between the point and the light source
 
   for (let i = 0, s = 0; i < numSurfaces; i++, s += FLOATS_PER_SURFACE) {
-    if (i === surfaceIndex) {
-      continue;
-    }
+    /*
+    Note that we are also checking surfaces against themselves
+    For instance, a cylinder can cast a shadow on itself
+    */
 
     const surfaceType = surfaceTypes[i];
     const rayIntersect = surfaceMap[surfaceType];
